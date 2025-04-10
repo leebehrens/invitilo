@@ -1,0 +1,198 @@
+#!/usr/bin/env bash
+
+# Plibona Invitilo: A better command prompt
+
+# Run using source: source plibona-invitilo
+
+# Effects - Wrapped in \[\] to prevent bash from counting them as displayed characters.
+RESET='\[\e[0m\]'
+BOLD='\[\e[1m\]'
+DIM='\[\e[2m\]'
+NORMAL='\[\e[22m\]'
+ITALIC='\[\e[3m\]'
+NOITALIC='\[\e[23m\]'
+UNDERLINE='\[\e[4m\]'
+NOUNDERLINE='\[\e[24m\]'
+BLINK='\[\e[5m\]'
+NOBLINK='\[\e[25m\]'
+REVERSE='\[\e[7m\]'
+NOREVERSE='\[\e[27m\]'
+STRIKE='\[\e[9m\]'
+NOSTRIKE='\[\e[29m\]'
+
+# Forground colors - Wrapped in \[\] to prevent bash from counting them as displayed characters.
+BLACK='\[\e[30m\]'
+RED='\[\e[31m\]'
+GREEN='\[\e[32m\]'
+YELLOW='\[\e[33m\]'
+BLUE='\[\e[34m\]'
+MAGENTA='\[\e[35m\]'
+CYAN='\[\e[36m\]'
+WHITE='\[\e[37m\]'
+
+# Background colors - Wrapped in \[\] to prevent bash from counting them as displayed characters.
+BLACKBG='\[\e[40m\]'
+REDBG='\[\e[41m\]'
+GREENBG='\[\e[42m\]'
+YELLOWBG='\[\e[43m\]'
+BLUEBG='\[\e[44m\]'
+MAGENTABG='\[\e[45m\]'
+CYANBG='\[\e[46m\]'
+WHITEBG='\[\e[47m\]'
+
+THEME_DIR="$(dirname "${BASH_SOURCE[0]}")/themes"
+THEME_EXT=".pi-theme"
+
+ensure_sourced() {
+    # Check if the script is being sourced
+    if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+        echo "Error: This script must be sourced. Use 'source plibona-invitilo' or '. plibona-invitilo'."
+        exit 1
+    fi
+}
+
+
+
+list_themes() {
+    # List available themes without the .pi-theme extension
+    echo "Available themes:"
+    for theme in "${THEME_DIR}"/*"${THEME_EXT}"; do
+        theme_name=$(basename "$theme" ${THEME_EXT})
+        if [ "$theme_name" == "$PLIBONA_INVITILO_THEME" ]; then
+            echo "* $theme_name"
+        else
+            echo "  $theme_name"
+        fi
+    done
+}
+
+
+start_plibona_invitilo() {
+    ensure_sourced
+
+    # Save the original PS1 prompt if it hasn't been saved already
+    if [ -z "${PLIBONA_INVITILO_PS1+x}" ]; then
+        export PLIBONA_INVITILO_PS1="$PS1"
+    fi
+    echo -E "PLIBONA_INVITILO_PS1: $PLIBONA_INVITILO_PS1"
+
+    # Verify the desired theme exists, falling back to the default theme. If the default
+    # can't befound either, then revert to the original prompt.
+    THEME_NAME="$1"
+    if [ -z "$THEME_NAME" ]; then
+        THEME_NAME="default"
+    fi
+    if [ ! -f "${THEME_DIR}/${THEME_NAME}${THEME_EXT}" ]; then
+        echo "Prompt theme not found: ${THEME_NAME}"
+        THEME_NAME="default"
+        if [ ! -f "${THEME_DIR}/${THEME_NAME}${THEME_EXT}" ]; then
+            echo "Default prompt theme not found; using orignal prompt."
+            stop_plibona_invitilo
+            exit 1
+        fi
+    fi
+
+    export PLIBONA_INVITILO_THEME="${THEME_NAME}"
+
+    # Load the theme.
+    # shellcheck disable=SC1090
+    source "${THEME_DIR}/${THEME_NAME}${THEME_EXT}"
+
+    make_prompt
+    echo -E "PROMPT: $PROMPT"
+
+    PROMPT_COMMAND=plibona_invitilo
+
+    echo "Plibona-invitilo: Prompt theme ${THEME_NAME} loaded."
+}
+
+stop_plibona_invitilo() {
+    ensure_sourced
+    unset PROMPT_COMMAND
+    PS1="$PLIBONA_INVITILO_PS1"
+    unset PLIBONA_INVITILO_PS1
+    unset PLIBONA_INVITILO_THEME
+}
+
+
+detect_need_newline() {
+    # Detect whether at the leftmost column to allow starting the prompt at the beginning of
+    # the next line. Useful when the last executed command leaves the cursor in the middle of
+    # the line (e.g., after running base64 -w0 <filename>).
+    # VSCode's interprocess communication to remote shells (e.g., WSL) doesn't handle \e[6n
+    # well, so skip detection if running in that environment.
+    NEWLINE=""
+    # if ! env | grep -q -m 1 "VSCODE_"; then
+    if [ -z "$VSCODE_IPC_HOOK_CLI" ]; then
+        IFS=';' read -rsdR -p $'\e[s\e[6n' _ COL
+        echo -ne "\e[u"
+        if (( COL > 1 )); then
+            NEWLINE="${BOLD}${RED}␤${RESET}\n"
+        fi
+    fi
+}
+
+get_git_branch() {
+    # Get the current git local and remote branch names.
+    #GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+    GIT_REMOTE_BRANCH=""
+    GIT_BRANCH=$(git branch 2>/dev/null | grep '\*' | sed 's/* //')
+    if [ -n "$GIT_BRANCH" ]; then
+        GIT_BRANCH="${GIT_BRANCH_WRAPPER}"
+        GIT_REMOTE_BRANCH=$(git rev-parse --abbrev-ref --symbolic-full-name @\{u\} 2>/dev/null)
+        if [ -n "$GIT_REMOTE_BRANCH" ]; then
+            GIT_REMOTE_BRANCH="${GIT_BRANCH_WRAPPER}"
+        fi
+    fi
+}
+
+
+plibona_invitilo() {
+
+    detect_need_newline
+
+    # Detect Python virtual environment.
+
+    # get_git_branch
+
+    # Call the make_prompt function defined in the theme file
+    # shellcheck disable=SC2119
+    make_prompt
+
+    PS1="${PROMPT}"
+}
+
+case "$1" in
+    --help|-h)
+        cat <<EOF
+NAME
+    plibona-invitilo - A better command prompt
+
+SYNOPSIS
+    plibona-invitilo [option] [theme]
+
+DESCRIPTION
+    A customizable command prompt with theme support.
+
+OPTIONS
+    -h, --help   Show this help message.
+    --list       List available themes.
+    --stop       Stop plibona-invitilo and restore the original prompt.
+    [theme]      Start plibona-invitilo with the specified theme. The default
+                 theme is used if not specified.
+EOF
+        ;;
+    --list)
+        list_themes
+        ;;
+    --stop)
+        stop_plibona_invitilo
+        ;;
+    *)
+        if [[ "$1" == -* ]]; then
+            echo "Error: Inavlid option. Use -h or --help for usage information."
+            exit 1
+        fi
+        start_plibona_invitilo "$1"
+        ;;
+esac

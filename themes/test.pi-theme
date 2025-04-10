@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+GIT_BRANCH_WRAPPER="<${GIT_BRANCH}>"
+
+make_prompt() {
+    # shellcheck disable=SC2034
+    PROMPT="${NEWLINE}${BOLD}${RED}Plibona${RESET} ${BOLD}${CYAN}Invitilo${RESET} ${BOLD}${BLACK}${GIT_BRANCH}${RESET} ${BOLD}${WHITE}▸ ${BLUE}\$${RESET} "
+}
