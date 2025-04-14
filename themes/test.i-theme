@@ -2,7 +2,7 @@
 
 GIT_BRANCH_WRAPPER="<${GIT_BRANCH}>"
 
-make_prompt() {
+invitilo_prompt() {
     # shellcheck disable=SC2034
     PROMPT="${NEWLINE}${BOLD}${RED}Invitilo${RESET} ${BOLD}${BLACK}${GIT_BRANCH}${RESET} ${BOLD}${WHITE}▸ ${BLUE}\$${RESET} "
 }

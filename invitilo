@@ -1,49 +1,53 @@
 #!/usr/bin/env bash
 
 # Invitilo: An enhanced command prompt
+# Run using . or source:
+#   . invitilo [options] [theme]
+#   source invitilo [options] [theme]
 
-# Run using source: source invitilo
+invitilo_init_colors() {
+    # Effects - Wrapped in \[\] to prevent bash from counting them as displayed characters.
+    RESET='\[\e[0m\]'
+    BOLD='\[\e[1m\]'
+    DIM='\[\e[2m\]'
+    NORMAL='\[\e[22m\]'
+    ITALIC='\[\e[3m\]'
+    NOITALIC='\[\e[23m\]'
+    UNDERLINE='\[\e[4m\]'
+    NOUNDERLINE='\[\e[24m\]'
+    BLINK='\[\e[5m\]'
+    NOBLINK='\[\e[25m\]'
+    REVERSE='\[\e[7m\]'
+    NOREVERSE='\[\e[27m\]'
+    STRIKE='\[\e[9m\]'
+    NOSTRIKE='\[\e[29m\]'
 
-# Effects - Wrapped in \[\] to prevent bash from counting them as displayed characters.
-RESET='\[\e[0m\]'
-BOLD='\[\e[1m\]'
-DIM='\[\e[2m\]'
-NORMAL='\[\e[22m\]'
-ITALIC='\[\e[3m\]'
-NOITALIC='\[\e[23m\]'
-UNDERLINE='\[\e[4m\]'
-NOUNDERLINE='\[\e[24m\]'
-BLINK='\[\e[5m\]'
-NOBLINK='\[\e[25m\]'
-REVERSE='\[\e[7m\]'
-NOREVERSE='\[\e[27m\]'
-STRIKE='\[\e[9m\]'
-NOSTRIKE='\[\e[29m\]'
+    # Forground colors - Wrapped in \[\] to prevent bash from counting them as displayed characters.
+    BLACK='\[\e[30m\]'
+    RED='\[\e[31m\]'
+    GREEN='\[\e[32m\]'
+    YELLOW='\[\e[33m\]'
+    BLUE='\[\e[34m\]'
+    MAGENTA='\[\e[35m\]'
+    CYAN='\[\e[36m\]'
+    WHITE='\[\e[37m\]'
 
-# Forground colors - Wrapped in \[\] to prevent bash from counting them as displayed characters.
-BLACK='\[\e[30m\]'
-RED='\[\e[31m\]'
-GREEN='\[\e[32m\]'
-YELLOW='\[\e[33m\]'
-BLUE='\[\e[34m\]'
-MAGENTA='\[\e[35m\]'
-CYAN='\[\e[36m\]'
-WHITE='\[\e[37m\]'
+    # Background colors - Wrapped in \[\] to prevent bash from counting them as displayed characters.
+    BLACKBG='\[\e[40m\]'
+    REDBG='\[\e[41m\]'
+    GREENBG='\[\e[42m\]'
+    YELLOWBG='\[\e[43m\]'
+    BLUEBG='\[\e[44m\]'
+    MAGENTABG='\[\e[45m\]'
+    CYANBG='\[\e[46m\]'
+    WHITEBG='\[\e[47m\]'
 
-# Background colors - Wrapped in \[\] to prevent bash from counting them as displayed characters.
-BLACKBG='\[\e[40m\]'
-REDBG='\[\e[41m\]'
-GREENBG='\[\e[42m\]'
-YELLOWBG='\[\e[43m\]'
-BLUEBG='\[\e[44m\]'
-MAGENTABG='\[\e[45m\]'
-CYANBG='\[\e[46m\]'
-WHITEBG='\[\e[47m\]'
+}
 
-THEME_DIR="$(dirname "${BASH_SOURCE[0]}")/themes"
-THEME_EXT=".pi-theme"
+INVITILO_THEME_DIR="$(dirname "${BASH_SOURCE[0]}")/themes"
+INVITILO_THEME_EXT=".i-theme"
 
-ensure_sourced() {
+invitilo_ensure_sourced() {
     # Check if the script is being sourced
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         echo "Error: This script must be sourced. Use 'source invitilo' or '. invitilo'."
@@ -51,13 +55,11 @@ ensure_sourced() {
     fi
 }
 
-
-
-list_themes() {
+invitilo_list() {
     # List available themes without the .pi-theme extension
     echo "Available themes:"
-    for theme in "${THEME_DIR}"/*"${THEME_EXT}"; do
-        theme_name=$(basename "$theme" ${THEME_EXT})
+    for theme in "${INVITILO_THEME_DIR}"/*"${INVITILO_THEME_EXT}"; do
+        theme_name=$(basename "$theme" ${INVITILO_THEME_EXT})
         if [ "$theme_name" == "$INVITILO_THEME" ]; then
             echo "* $theme_name"
         else
@@ -67,8 +69,8 @@ list_themes() {
 }
 
 
-start_invitilo() {
-    ensure_sourced
+invitilo_start() {
+    invitilo_ensure_sourced
 
     # Save the original PS1 prompt if it hasn't been saved already
     if [ -z "${INVITILO_PS1+x}" ]; then
@@ -82,10 +84,10 @@ start_invitilo() {
     if [ -z "$THEME_NAME" ]; then
         THEME_NAME="default"
     fi
-    if [ ! -f "${THEME_DIR}/${THEME_NAME}${THEME_EXT}" ]; then
+    if [ ! -f "${INVITILO_THEME_DIR}/${THEME_NAME}${INVITILO_THEME_EXT}" ]; then
         echo "Prompt theme not found: ${THEME_NAME}"
         THEME_NAME="default"
-        if [ ! -f "${THEME_DIR}/${THEME_NAME}${THEME_EXT}" ]; then
+        if [ ! -f "${INVITILO_THEME_DIR}/${THEME_NAME}${INVITILO_THEME_EXT}" ]; then
             echo "Default prompt theme not found; using orignal prompt."
             stop_invitilo
             exit 1
@@ -96,9 +98,9 @@ start_invitilo() {
 
     # Load the theme.
     # shellcheck disable=SC1090
-    source "${THEME_DIR}/${THEME_NAME}${THEME_EXT}"
+    source "${INVITILO_THEME_DIR}/${THEME_NAME}${INVITILO_THEME_EXT}"
 
-    make_prompt
+    invitilo_prompt
     echo -E "PROMPT: $PROMPT"
 
     PROMPT_COMMAND=invitilo
@@ -106,8 +108,8 @@ start_invitilo() {
     echo "Invitilo: Prompt theme ${THEME_NAME} loaded."
 }
 
-stop_invitilo() {
-    ensure_sourced
+invitilo_stop() {
+    invitilo_ensure_sourced
     unset PROMPT_COMMAND
     PS1="$INVITILO_PS1"
     unset INVITILO_PS1
@@ -115,7 +117,7 @@ stop_invitilo() {
 }
 
 
-detect_need_newline() {
+invitilo_newline() {
     # Detect whether at the leftmost column to allow starting the prompt at the beginning of
     # the next line. Useful when the last executed command leaves the cursor in the middle of
     # the line (e.g., after running base64 -w0 <filename>).
@@ -132,7 +134,7 @@ detect_need_newline() {
     fi
 }
 
-get_git_branch() {
+invitilo_git_branch() {
     # Get the current git local and remote branch names.
     #GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
     GIT_REMOTE_BRANCH=""
@@ -148,8 +150,9 @@ get_git_branch() {
 
 
 invitilo() {
+    invitilo_init_colors
 
-    detect_need_newline
+    invitilo_newline
 
     # Detect Python virtual environment.
 
@@ -157,7 +160,7 @@ invitilo() {
 
     # Call the make_prompt function defined in the theme file
     # shellcheck disable=SC2119
-    make_prompt
+    invitilo_prompt
 
     PS1="${PROMPT}"
 }
@@ -169,7 +172,8 @@ NAME
     invitilo - An enhanced command prompt
 
 SYNOPSIS
-    invitilo [option] [theme]
+    . invitilo [option] [theme]
+    source invitilo [option] [theme]
 
 DESCRIPTION
     A customizable command prompt with theme support.
@@ -183,16 +187,16 @@ OPTIONS
 EOF
         ;;
     --list)
-        list_themes
+        invitilo_list
         ;;
     --stop)
-        stop_invitilo
+        invitilo_stop
         ;;
     *)
         if [[ "$1" == -* ]]; then
             echo "Error: Inavlid option. Use -h or --help for usage information."
             exit 1
         fi
-        start_invitilo "$1"
+        invitilo_start "$1"
         ;;
 esac
