@@ -2,6 +2,6 @@
 
 make_prompt() {
     # shellcheck disable=SC2034
-    # PROMPT="${NEWLINE}${BOLD}${WHITE}Plibona${RESET} ${BOLD}${CYAN}Invitilo${RESET} ${BOLD}${WHITE}▸ ${BLACK}\$${RESET} "
+    # PROMPT="${NEWLINE}${BOLD}${CYAN}Invitilo${RESET} ${BOLD}${WHITE}▸ ${BLACK}\$${RESET} "
     PROMPT="${NEWLINE}💻 ${BOLD}${GREEN}\u@\h${RESET}:${BOLD}${BLUE}\w${RESET}\$ "
 }

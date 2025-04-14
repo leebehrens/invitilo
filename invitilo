@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-# Plibona Invitilo: A better command prompt
+# Invitilo: An enhanced command prompt
 
-# Run using source: source plibona-invitilo
+# Run using source: source invitilo
 
 # Effects - Wrapped in \[\] to prevent bash from counting them as displayed characters.
 RESET='\[\e[0m\]'
