@@ -46,7 +46,7 @@ THEME_EXT=".pi-theme"
 ensure_sourced() {
     # Check if the script is being sourced
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-        echo "Error: This script must be sourced. Use 'source plibona-invitilo' or '. plibona-invitilo'."
+        echo "Error: This script must be sourced. Use 'source invitilo' or '. invitilo'."
         exit 1
     fi
 }
@@ -58,7 +58,7 @@ list_themes() {
     echo "Available themes:"
     for theme in "${THEME_DIR}"/*"${THEME_EXT}"; do
         theme_name=$(basename "$theme" ${THEME_EXT})
-        if [ "$theme_name" == "$PLIBONA_INVITILO_THEME" ]; then
+        if [ "$theme_name" == "$INVITILO_THEME" ]; then
             echo "* $theme_name"
         else
             echo "  $theme_name"
@@ -67,14 +67,14 @@ list_themes() {
 }
 
 
-start_plibona_invitilo() {
+start_invitilo() {
     ensure_sourced
 
     # Save the original PS1 prompt if it hasn't been saved already
-    if [ -z "${PLIBONA_INVITILO_PS1+x}" ]; then
-        export PLIBONA_INVITILO_PS1="$PS1"
+    if [ -z "${INVITILO_PS1+x}" ]; then
+        export INVITILO_PS1="$PS1"
     fi
-    echo -E "PLIBONA_INVITILO_PS1: $PLIBONA_INVITILO_PS1"
+    echo -E "INVITILO_PS1: $INVITILO_PS1"
 
     # Verify the desired theme exists, falling back to the default theme. If the default
     # can't befound either, then revert to the original prompt.
@@ -87,12 +87,12 @@ start_plibona_invitilo() {
         THEME_NAME="default"
         if [ ! -f "${THEME_DIR}/${THEME_NAME}${THEME_EXT}" ]; then
             echo "Default prompt theme not found; using orignal prompt."
-            stop_plibona_invitilo
+            stop_invitilo
             exit 1
         fi
     fi
 
-    export PLIBONA_INVITILO_THEME="${THEME_NAME}"
+    export INVITILO_THEME="${THEME_NAME}"
 
     # Load the theme.
     # shellcheck disable=SC1090
@@ -101,17 +101,17 @@ start_plibona_invitilo() {
     make_prompt
     echo -E "PROMPT: $PROMPT"
 
-    PROMPT_COMMAND=plibona_invitilo
+    PROMPT_COMMAND=invitilo
 
-    echo "Plibona-invitilo: Prompt theme ${THEME_NAME} loaded."
+    echo "Invitilo: Prompt theme ${THEME_NAME} loaded."
 }
 
-stop_plibona_invitilo() {
+stop_invitilo() {
     ensure_sourced
     unset PROMPT_COMMAND
-    PS1="$PLIBONA_INVITILO_PS1"
-    unset PLIBONA_INVITILO_PS1
-    unset PLIBONA_INVITILO_THEME
+    PS1="$INVITILO_PS1"
+    unset INVITILO_PS1
+    unset INVITILO_THEME
 }
 
 
@@ -147,7 +147,7 @@ get_git_branch() {
 }
 
 
-plibona_invitilo() {
+invitilo() {
 
     detect_need_newline
 
@@ -166,10 +166,10 @@ case "$1" in
     --help|-h)
         cat <<EOF
 NAME
-    plibona-invitilo - A better command prompt
+    invitilo - An enhanced command prompt
 
 SYNOPSIS
-    plibona-invitilo [option] [theme]
+    invitilo [option] [theme]
 
 DESCRIPTION
     A customizable command prompt with theme support.
@@ -177,22 +177,22 @@ DESCRIPTION
 OPTIONS
     -h, --help   Show this help message.
     --list       List available themes.
-    --stop       Stop plibona-invitilo and restore the original prompt.
-    [theme]      Start plibona-invitilo with the specified theme. The default
-                 theme is used if not specified.
+    --stop       Stop invitilo and restore the original prompt.
+    [theme]      Start invitilo with the specified theme. The default theme
+                 is used if not specified.
 EOF
         ;;
     --list)
         list_themes
         ;;
     --stop)
-        stop_plibona_invitilo
+        stop_invitilo
         ;;
     *)
         if [[ "$1" == -* ]]; then
             echo "Error: Inavlid option. Use -h or --help for usage information."
             exit 1
         fi
-        start_plibona_invitilo "$1"
+        start_invitilo "$1"
         ;;
 esac
