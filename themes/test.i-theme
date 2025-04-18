@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-GIT_BRANCH_WRAPPER="<${GIT_BRANCH}>"
+# GIT_BRANCH_WRAPPER="<${GIT_BRANCH}>"
 
-invitilo_prompt() {
-    # shellcheck disable=SC2034
+# shellcheck disable=SC2034
+invitilo_theme_prompt() {
     PROMPT="${NEWLINE}${BOLD}${RED}Invitilo${RESET} ${BOLD}${BLACK}${GIT_BRANCH}${RESET} ${BOLD}${WHITE}▸ ${BLUE}\$${RESET} "
 }
