@@ -57,7 +57,7 @@ invitilo_ensure_sourced() {
 
 invitilo_list() {
     # List available themes without the .pi-theme extension
-    echo "Available themes:"
+    echo "Available themes (* = active):"
     for theme in "${INVITILO_THEME_DIR}"/*"${INVITILO_THEME_EXT}"; do
         theme_name=$(basename "$theme" ${INVITILO_THEME_EXT})
         if [ "$theme_name" == "$INVITILO_THEME" ]; then
