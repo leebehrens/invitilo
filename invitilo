@@ -44,7 +44,23 @@ invitilo_init_colors() {
     WHITEBG='\[\e[47m\]'
 }
 
-INVITILO_THEME_DIR="$(dirname "${BASH_SOURCE[0]}")/themes"
+case "$OSTYPE" in
+    linux*)
+        INVITILO_OS="linux"
+        if env | grep -q "WSL"; then
+            # Running in WSL
+            INVITILO_OS="linux-wsl"
+        fi
+        ;;
+    darwin*)  INVITILO_OS="macos";;
+    cygwin*)  INVITILO_OS="cygwin";;
+    msys*)    INVITILO_OS="windows";;
+    *bsd*)    INVITILO_OS="bsd-$OSTYPE";;
+    *)        INVITILO_OS="unknown";;
+esac
+
+INVITILO_ROOT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+INVITILO_THEME_DIR="${INVITILO_ROOT_DIR}/themes"
 INVITILO_THEME_EXT=".i-theme"
 
 invitilo_ensure_sourced() {
@@ -226,6 +242,9 @@ EOF
         ;;
     --stop)
         invitilo_stop
+        ;;
+    --version)
+        echo "Invitilo $(cat "${INVITILO_ROOT_DIR}/VERSION")"
         ;;
     *)
         if [[ "$1" == -* ]]; then
