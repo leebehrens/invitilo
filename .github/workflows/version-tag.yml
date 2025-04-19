@@ -16,6 +16,6 @@ jobs:
         with:
           version-command: |
             head -n 1 "${INVITILO_ROOT_DIR}/VERSION" | (IFS=' ' read -r _ second_field ; echo "$second_field")
-          create-tag: false
+          create-tag: true
           tag-template: v{VERSION}
           tag-annotation-template: ""
