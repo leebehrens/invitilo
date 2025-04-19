@@ -1,0 +1,22 @@
+name: Tag new versions
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tag-new-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - name: Detect and Tag New Version
+        uses: salsify/action-detect-and-tag-new-version@v2
+        with:
+          version-command: |
+            IFS=' ' read -r _ version_field < <(head -n 1 VERSION) ; echo "$version_field"
+          create-tag: false
+          tag-template: v{VERSION}
+          released-version: ""
+          
