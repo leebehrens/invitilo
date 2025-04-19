@@ -5,43 +5,51 @@
 #   . invitilo [options] [theme]
 #   source invitilo [options] [theme]
 
+invitilo_ensure_sourced() {
+    # Ensure the script is sourced.
+    if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+        echo "Error: This script must be sourced. Use 'source invitilo' or '. invitilo'."
+        exit 1
+    fi
+}
+
 # shellcheck disable=SC2034
 invitilo_init_colors() {
     # Effects - Wrapped in \[\] to prevent bash from counting them as displayed characters.
-    RESET='\[\e[0m\]'
-    BOLD='\[\e[1m\]'
-    DIM='\[\e[2m\]'
-    NORMAL='\[\e[22m\]'
-    ITALIC='\[\e[3m\]'
-    NOITALIC='\[\e[23m\]'
-    UNDERLINE='\[\e[4m\]'
-    NOUNDERLINE='\[\e[24m\]'
-    BLINK='\[\e[5m\]'
-    NOBLINK='\[\e[25m\]'
-    REVERSE='\[\e[7m\]'
-    NOREVERSE='\[\e[27m\]'
-    STRIKE='\[\e[9m\]'
-    NOSTRIKE='\[\e[29m\]'
+    readonly RESET='\[\e[0m\]'
+    readonly BOLD='\[\e[1m\]'
+    readonly DIM='\[\e[2m\]'
+    readonly NORMAL='\[\e[22m\]'
+    readonly ITALIC='\[\e[3m\]'
+    readonly NOITALIC='\[\e[23m\]'
+    readonly UNDERLINE='\[\e[4m\]'
+    readonly NOUNDERLINE='\[\e[24m\]'
+    readonly BLINK='\[\e[5m\]'
+    readonly NOBLINK='\[\e[25m\]'
+    readonly REVERSE='\[\e[7m\]'
+    readonly NOREVERSE='\[\e[27m\]'
+    readonly STRIKE='\[\e[9m\]'
+    readonly NOSTRIKE='\[\e[29m\]'
 
     # Forground colors - Wrapped in \[\] to prevent bash from counting them as displayed characters.
-    BLACK='\[\e[30m\]'
-    RED='\[\e[31m\]'
-    GREEN='\[\e[32m\]'
-    YELLOW='\[\e[33m\]'
-    BLUE='\[\e[34m\]'
-    MAGENTA='\[\e[35m\]'
-    CYAN='\[\e[36m\]'
-    WHITE='\[\e[37m\]'
+    readonly BLACK='\[\e[30m\]'
+    readonly RED='\[\e[31m\]'
+    readonly GREEN='\[\e[32m\]'
+    readonly YELLOW='\[\e[33m\]'
+    readonly BLUE='\[\e[34m\]'
+    readonly MAGENTA='\[\e[35m\]'
+    readonly CYAN='\[\e[36m\]'
+    readonly WHITE='\[\e[37m\]'
 
     # Background colors - Wrapped in \[\] to prevent bash from counting them as displayed characters.
-    BLACKBG='\[\e[40m\]'
-    REDBG='\[\e[41m\]'
-    GREENBG='\[\e[42m\]'
-    YELLOWBG='\[\e[43m\]'
-    BLUEBG='\[\e[44m\]'
-    MAGENTABG='\[\e[45m\]'
-    CYANBG='\[\e[46m\]'
-    WHITEBG='\[\e[47m\]'
+    readonly BLACKBG='\[\e[40m\]'
+    readonly REDBG='\[\e[41m\]'
+    readonly GREENBG='\[\e[42m\]'
+    readonly YELLOWBG='\[\e[43m\]'
+    readonly BLUEBG='\[\e[44m\]'
+    readonly MAGENTABG='\[\e[45m\]'
+    readonly CYANBG='\[\e[46m\]'
+    readonly WHITEBG='\[\e[47m\]'
 }
 
 case "$OSTYPE" in
@@ -58,18 +66,14 @@ case "$OSTYPE" in
     *bsd*)    INVITILO_OS="bsd-$OSTYPE";;
     *)        INVITILO_OS="unknown";;
 esac
+# shellcheck disable=SC2034 # Might be useful for a theme.
+readonly INVITILO_OS
 
-INVITILO_ROOT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-INVITILO_THEME_DIR="${INVITILO_ROOT_DIR}/themes"
-INVITILO_THEME_EXT=".i-theme"
+# shellcheck disable=SC2155 # OK for script to crash if the var is not set.
+readonly INVITILO_ROOT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+readonly INVITILO_THEME_DIR="${INVITILO_ROOT_DIR}/themes"
+readonly INVITILO_THEME_EXT=".i-theme"
 
-invitilo_ensure_sourced() {
-    # Check if the script is being sourced
-    if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-        echo "Error: This script must be sourced. Use 'source invitilo' or '. invitilo'."
-        exit 1
-    fi
-}
 
 invitilo_list() {
     # List available themes without the .pi-theme extension
@@ -92,7 +96,6 @@ invitilo_start() {
     if [ -z "${INVITILO_PS1+x}" ]; then
         export INVITILO_PS1="$PS1"
     fi
-    # echo -E "INVITILO_PS1: $INVITILO_PS1"
 
     # Verify the desired theme exists, falling back to the default theme. If the default
     # can't befound either, then revert to the original prompt.
@@ -117,8 +120,7 @@ invitilo_start() {
     unset invitilo_theme_prompt
 
     # Load the new theme.
-    declare -A AFFIX
-    # shellcheck disable=SC1090
+    # shellcheck disable=SC1090 # ShellCheck can't detect the theme file.
     source "${INVITILO_THEME_DIR}/${THEME_NAME}${INVITILO_THEME_EXT}"
 
     AFFIX[OTHER]="ABC"
