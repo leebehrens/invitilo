@@ -244,7 +244,7 @@ EOF
         invitilo_stop
         ;;
     --version)
-        IFS=' ' read -r _ second_field < <(head -n 1 "${INVITILO_ROOT_DIR}/VERSION") ; echo "$second_field"
+        head -n 1 "${INVITILO_ROOT_DIR}/VERSION" | (IFS=' ' read -r _ second_field ; echo "$second_field")
         ;;
     *)
         if [[ "$1" == -* ]]; then

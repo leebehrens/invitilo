@@ -15,7 +15,7 @@ jobs:
         uses: salsify/action-detect-and-tag-new-version@v2
         with:
           version-command: |
-            IFS=' ' read -r _ version_field < <(head -n 1 VERSION) ; echo "$version_field"
+            head -n 1 "${INVITILO_ROOT_DIR}/VERSION" | (IFS=' ' read -r _ second_field ; echo "$second_field")
           create-tag: false
           tag-template: v{VERSION}
           tag-annotation-template: ""
