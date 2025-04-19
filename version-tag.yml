@@ -14,8 +14,15 @@ jobs:
       - name: Detect and Tag New Version
         uses: salsify/action-detect-and-tag-new-version@v2
         with:
-          version-command: |
-            head -n 1 "${INVITILO_ROOT_DIR}/VERSION" | (IFS=' ' read -r _ second_field ; echo "$second_field")
+            version-command: |
+            VERSION=$(head -n 1 "${INVITILO_ROOT_DIR}/VERSION" | (IFS=' ' read -r _ second_field ; echo "$second_field"))
+            echo "$VERSION"
+            prerelease: |
+            if [[ "$VERSION" == *"-"* ]]; then
+              echo "true"
+            else
+              echo "false"
+            fi
           create-tag: true
           tag-template: v{VERSION}
           tag-annotation-template: ""

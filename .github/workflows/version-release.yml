@@ -1,0 +1,39 @@
+name: Tag new versions
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Read version from file
+        id: read_version
+        run: |
+          VERSION=$(head -n 1 VERSION | (IFS=' ' read -r _ ver ; echo "$ver"))
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          if [[ "$VERSION" == *"-"* ]]; then
+              PRERELEASE=true
+          else
+              PRERELEASE=false
+          fi
+          echo "PRERELEASE=$PRERELEASE" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        # uses: actions/create-release@v1
+        # env:
+          #   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # with:
+          #   tag_name: v${{ steps.read_version.outputs.VERSION }}
+          #   release_name: v${{ steps.read_version.outputs.VERSION }}
+          #   prerelease: ${{ steps.read_version.outputs.PRERELEASE }}
+        uses: ncipollo/release-action@v1
+        with:
+          skipIfReleaseExists: true
+          commit: main
+          tag: v${{ steps.read_version.outputs.VERSION }}
+          prerelease: ${{ steps.read_version.outputs.PRERELEASE }}
