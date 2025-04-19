@@ -244,14 +244,16 @@ EOF
         invitilo_stop
         ;;
     --version)
-        version=$(head -n 1 "${INVITILO_ROOT_DIR}/VERSION" | (IFS=' ' read -r _ ver ; echo "$ver"))
-        echo "Invitilo version: $version"
-
-        if [[ "$version" == *"-"* ]]; then
-            echo "prerelease=true"
+        cat VERSION
+        echo "----"
+        VERSION=$(head -n 1 VERSION | (IFS=' ' read -r _ ver ; echo "$ver"))
+        echo "VERSION=$VERSION"
+        if [[ "$VERSION" == *"-"* ]]; then
+            PRERELEASE=true
         else
-            echo "prerelease=false"
+            PRERELEASE=false
         fi
+        echo "PRERELEASE=$PRERELEASE"
         ;;
     *)
         if [[ "$1" == -* ]]; then
