@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-
-
 # shellcheck disable=SC2034
 invitilo_theme_init() {
     VENV_PREFIX="${YELLOW}◲${ITALIC}"

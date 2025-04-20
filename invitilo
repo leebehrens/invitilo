@@ -13,8 +13,10 @@ invitilo_ensure_sourced() {
     fi
 }
 
+# Most readonly values (constants) are used in themes. Wrapping them all in a
+# function allows using a single shellcheck disable directive for all of them.
 # shellcheck disable=SC2034
-invitilo_init_colors() {
+invitilo_init() {
     # Effects - Wrapped in \[\] to prevent bash from counting them as displayed characters.
     readonly RESET='\[\e[0m\]'
     readonly BOLD='\[\e[1m\]'
@@ -50,30 +52,31 @@ invitilo_init_colors() {
     readonly MAGENTABG='\[\e[45m\]'
     readonly CYANBG='\[\e[46m\]'
     readonly WHITEBG='\[\e[47m\]'
+
+    # Some themes may find the OS type handy. E.g., there are definite display differences
+    # between Linux standalone vs Linux on WSL.
+    case "$OSTYPE" in
+        linux*)
+            INVITILO_OS="linux"
+            if env | grep -q "WSL"; then
+                # Running in WSL
+                INVITILO_OS="linux-wsl"
+            fi
+            ;;
+        darwin*)  INVITILO_OS="macos";;
+        cygwin*)  INVITILO_OS="windows-cygwin";;
+        msys*)    INVITILO_OS="windows-msys";;
+        *bsd*)    INVITILO_OS="bsd-$OSTYPE";;
+        *)        INVITILO_OS="unknown";;
+    esac
+    readonly INVITILO_OS
+
+    # shellcheck disable=SC2155 # OK for script to crash if the var is not set.
+    readonly INVITILO_ROOT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+    readonly INVITILO_THEME_DIR="${INVITILO_ROOT_DIR}/themes"
+    readonly INVITILO_THEME_EXT=".theme"
 }
-
-case "$OSTYPE" in
-    linux*)
-        INVITILO_OS="linux"
-        if env | grep -q "WSL"; then
-            # Running in WSL
-            INVITILO_OS="linux-wsl"
-        fi
-        ;;
-    darwin*)  INVITILO_OS="macos";;
-    cygwin*)  INVITILO_OS="cygwin";;
-    msys*)    INVITILO_OS="windows";;
-    *bsd*)    INVITILO_OS="bsd-$OSTYPE";;
-    *)        INVITILO_OS="unknown";;
-esac
-# shellcheck disable=SC2034 # Might be useful for a theme.
-readonly INVITILO_OS
-
-# shellcheck disable=SC2155 # OK for script to crash if the var is not set.
-readonly INVITILO_ROOT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-readonly INVITILO_THEME_DIR="${INVITILO_ROOT_DIR}/themes"
-readonly INVITILO_THEME_EXT=".i-theme"
-
+invitilo_init
 
 invitilo_list() {
     # List available themes without the .pi-theme extension
@@ -123,15 +126,8 @@ invitilo_start() {
     # shellcheck disable=SC1090 # ShellCheck can't detect the theme file.
     source "${INVITILO_THEME_DIR}/${THEME_NAME}${INVITILO_THEME_EXT}"
 
-    AFFIX[OTHER]="ABC"
-
-    # # display all the elements of the associative array AFFIX
-    # for key in "${!AFFIX[@]}"; do
-    #     echo "$key: ${AFFIX[$key]}"
-    # done
 
     invitilo_theme_prompt
-    # echo -E "PROMPT: $PROMPT"
 
     PROMPT_COMMAND=invitilo
 
@@ -201,7 +197,7 @@ invitilo() {
     # Ideally, these functions would ever need to be called once. But we call
     # them here to ensure the values of the variables are sure to be unaffected
     # by other processes.
-    invitilo_init_colors
+    # invitilo_init_colors
     invitilo_theme_init
 
     # The values of the variables set by these functions may vary by the state
