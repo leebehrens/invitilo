@@ -212,6 +212,7 @@ invitilo_python_venv() {
     # Get the current Python virtual environment name.
     VENV=""
     if [ -n "$VIRTUAL_ENV_PROMPT" ]; then
+        # shellcheck disable=SC2034 # Used in themes.
         VENV="${VENV_PREFIX}${VIRTUAL_ENV_PROMPT}${VENV_SUFFIX}"
     fi
 }
@@ -219,10 +220,25 @@ invitilo_python_venv() {
 invitilo_git_branch() {
     # Get the current git local and remote branch names.
     #GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+    # shellcheck disable=SC2034 # Used in themes.
     GIT_REMOTE_BRANCH=""
     GIT_BRANCH=$(git branch 2>/dev/null | grep '\*' | sed 's/* //')
     if [[ -n "$GIT_BRANCH" ]]; then
         GIT_BRANCH="${GIT_BRANCH_PREFIX}${GIT_BRANCH}${GIT_BRANCH_SUFFIX}"
+        # Check if the current branch is tracking a remote branch
+        GIT_REMOTE_BRANCH=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)
+        if [[ -n "$GIT_REMOTE_BRANCH" ]]; then
+            # shellcheck disable=SC2034 # Used in themes.
+            GIT_REMOTE_BRANCH="${GIT_REMOTE_BRANCH_PREFIX}${GIT_REMOTE_BRANCH}${GIT_REMOTE_BRANCH_SUFFIX}"
+        fi
+        # Get ahead/behind status.
+        GIT_STATUS=$(git status -uno 2>/dev/null)
+        if [[ "$GIT_STATUS" == *"Your branch is ahead"* ]]; then
+            GIT_AHEAD="${GIT_AHEAD_PREFIX}${GIT_AHEAD_SUFFIX}"
+        elif [[ "$GIT_STATUS" == *"Your branch is behind"* ]]; then
+            GIT_BEHIND="${GIT_BEHIND_PREFIX}${GIT_BEHIND_SUFFIX}"
+        fi
     fi
 }
 
@@ -311,5 +327,6 @@ EOF
 esac
 
 if [ "$?" -ne 0 ]; then
+    echo "error"
     sleep 15
 fi
