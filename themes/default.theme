@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # shellcheck disable=SC2034
-xinvitilo_theme_init() { true; }
+invitilo_theme_init() { true; }
 
 # shellcheck disable=SC2034
 invitilo_theme_prompt() {

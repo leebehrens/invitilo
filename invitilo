@@ -102,7 +102,7 @@ invitilo_list() {
     done
 }
 
-invitilo_validate_theme() {
+invitilo_is_valid_theme() {
     local theme_name=$1
     local theme_path="${INVITILO_THEME_DIR}/$1${INVITILO_THEME_EXT}"
     # Validate the theme name.
@@ -124,7 +124,15 @@ invitilo_validate_theme() {
     return 0
 }
 
-
+# invitilo_start - Start invitilo with the specified theme.
+#
+# Args:
+#   $1 Theme name
+#
+# Returns:
+#   0 if the theme is valid
+#   1 if a fallback used
+#   2 if no fallback available
 invitilo_start() {
     # set -x
 
@@ -135,30 +143,24 @@ invitilo_start() {
         export INVITILO_PS1="$PS1"
     fi
 
-    # Verify the desired theme exists, falling back to the default theme. If the default
-    # can't befound either, then revert to the original prompt.
     local theme_name="$1"
-    # If no theme specified, continue with current theme if set. Otherwise, use default.
-    if [ -z "$theme_name" ]; then
+    local return_result=0
+
+    # If not a valid theme, fallback to current theme.
+    # If current theme not set, fallback to "default".
+    # If "default" not valid, use orginal prompt.
+    if ! invitilo_is_valid_theme "$theme_name"; then
         if [ -n "$INVITILO_THEME" ]; then
-            echo "Prompt theme not specified; using currently active theme: ${INVITILO_THEME}"
-            return 1
-        fi
-        echo "Prompt theme not specified; using default theme."
-        theme_name="default"
-    fi
-    # If specified theme is not valid, use the current theme if set. Otherwise, use default.
-    if ! invitilo_validate_theme "${theme_name}"; then
-        echo "Prompt theme not found: ${theme_name}"
-        if [ -n "$INVITILO_THEME" ]; then
-            echo "Using currently active theme: ${INVITILO_THEME}"
+            echo "Prompt theme not found: ${theme_name}"
+            echo "Using currently active prompt theme: ${INVITILO_THEME}"
             return 1
         fi
         theme_name="default"
-        if ! invitilo_ensure_sourced "${theme_name}"; then
-            echo "Default prompt theme not found; using orignal prompt."
+        return_result=1
+        if ! invitilo_is_valid_theme "$theme_name"; then
+            echo "Default prompt theme not found; using original prompt."
             stop_invitilo
-            return 1
+            return 2
         fi
     fi
 
@@ -172,12 +174,10 @@ invitilo_start() {
     # shellcheck disable=SC1090 # ShellCheck can't detect the theme file.
     source "${INVITILO_THEME_DIR}/${theme_name}${INVITILO_THEME_EXT}"
 
-    # invitilo_theme_init
-    # invitilo_theme_prompt
-
     PROMPT_COMMAND=invitilo
 
     echo "Invitilo: Prompt theme ${theme_name} loaded."
+    return $return_result
 }
 
 invitilo_stop() {
@@ -324,5 +324,4 @@ esac
 
 if [ "$?" -ne 0 ]; then
     echo "error"
-    sleep 15
 fi
