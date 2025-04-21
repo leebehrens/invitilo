@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=SC2034
+invitilo_theme_init() {
+    VENV_PREFIX="${YELLOW}◲${ITALIC}"
+    VENV_SUFFIX="${RESET} "
+    GIT_BRANCH_PREFIX=" ${RED}🗐 ${ITALIC}" # ⛙ Ⲗ
+    GIT_BRANCH_SUFFIX="${RESET}"
+    GIT_REMOTE_BRANCH_PREFIX=""
+    GIT_REMOTE_BRANCH_SUFFIX=""
+    GIT_AHEAD_PREFIX="${RED}↑ ${ITALIC}"
+    GIT_AHEAD_SUFFIX="${RESET}"
+    GIT_BEHIND_PREFIX="${RED}↓ ${ITALIC}"
+    GIT_BEHIND_SUFFIX="${RESET}"
+    COMMAND_STATUS_SUCCESS="✔ "
+    COMMAND_STATUS_ERROR="✘ "
+}
+
+# shellcheck disable=SC2034
+invitilo_theme_prompt() {
+    PROMPT="${NEWLINE}${VENV}${BOLD}${GREEN}🖳 ${ITALIC}\u@\h${RESET} ${BOLD}${BLUE}🖬 ${ITALIC}\w${RESET}${GIT_BRANCH}${GIT_BEHIND}${GIT_AHEAD}\n${COMMAND_STATUS}${ITALIC}${BOLD}${BLACK}\$${RESET} "
+}

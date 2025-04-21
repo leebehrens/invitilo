@@ -5,77 +5,95 @@
 #   . invitilo [options] [theme]
 #   source invitilo [options] [theme]
 
-# shellcheck disable=SC2034
-invitilo_init_colors() {
-    # Effects - Wrapped in \[\] to prevent bash from counting them as displayed characters.
-    RESET='\[\e[0m\]'
-    BOLD='\[\e[1m\]'
-    DIM='\[\e[2m\]'
-    NORMAL='\[\e[22m\]'
-    ITALIC='\[\e[3m\]'
-    NOITALIC='\[\e[23m\]'
-    UNDERLINE='\[\e[4m\]'
-    NOUNDERLINE='\[\e[24m\]'
-    BLINK='\[\e[5m\]'
-    NOBLINK='\[\e[25m\]'
-    REVERSE='\[\e[7m\]'
-    NOREVERSE='\[\e[27m\]'
-    STRIKE='\[\e[9m\]'
-    NOSTRIKE='\[\e[29m\]'
-
-    # Forground colors - Wrapped in \[\] to prevent bash from counting them as displayed characters.
-    BLACK='\[\e[30m\]'
-    RED='\[\e[31m\]'
-    GREEN='\[\e[32m\]'
-    YELLOW='\[\e[33m\]'
-    BLUE='\[\e[34m\]'
-    MAGENTA='\[\e[35m\]'
-    CYAN='\[\e[36m\]'
-    WHITE='\[\e[37m\]'
-
-    # Background colors - Wrapped in \[\] to prevent bash from counting them as displayed characters.
-    BLACKBG='\[\e[40m\]'
-    REDBG='\[\e[41m\]'
-    GREENBG='\[\e[42m\]'
-    YELLOWBG='\[\e[43m\]'
-    BLUEBG='\[\e[44m\]'
-    MAGENTABG='\[\e[45m\]'
-    CYANBG='\[\e[46m\]'
-    WHITEBG='\[\e[47m\]'
-}
-
-case "$OSTYPE" in
-    linux*)
-        INVITILO_OS="linux"
-        if env | grep -q "WSL"; then
-            # Running in WSL
-            INVITILO_OS="linux-wsl"
-        fi
-        ;;
-    darwin*)  INVITILO_OS="macos";;
-    cygwin*)  INVITILO_OS="cygwin";;
-    msys*)    INVITILO_OS="windows";;
-    *bsd*)    INVITILO_OS="bsd-$OSTYPE";;
-    *)        INVITILO_OS="unknown";;
-esac
-
-INVITILO_ROOT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-INVITILO_THEME_DIR="${INVITILO_ROOT_DIR}/themes"
-INVITILO_THEME_EXT=".i-theme"
-
 invitilo_ensure_sourced() {
-    # Check if the script is being sourced
+    # Ensure the script is sourced.
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         echo "Error: This script must be sourced. Use 'source invitilo' or '. invitilo'."
         exit 1
     fi
 }
 
+# Most readonly values (constants) are used in themes. Wrapping them all in a
+# function allows using a single shellcheck disable directive for all of them.
+# shellcheck disable=SC2034
+invitilo_init() {
+    # Exit the function if already initialized
+    if [[ "${INVITILO_INIT_COMPLETE:-}" = true ]]; then
+        return
+    fi
+
+    # Effects - Wrapped in \[\] to prevent bash from counting them as displayed characters.
+    readonly RESET='\[\e[0m\]'
+    readonly BOLD='\[\e[1m\]'
+    readonly DIM='\[\e[2m\]'
+    readonly NORMAL='\[\e[22m\]'
+    readonly ITALIC='\[\e[3m\]'
+    readonly NOITALIC='\[\e[23m\]'
+    readonly UNDERLINE='\[\e[4m\]'
+    readonly NOUNDERLINE='\[\e[24m\]'
+    readonly BLINK='\[\e[5m\]'
+    readonly NOBLINK='\[\e[25m\]'
+    readonly REVERSE='\[\e[7m\]'
+    readonly NOREVERSE='\[\e[27m\]'
+    readonly STRIKE='\[\e[9m\]'
+    readonly NOSTRIKE='\[\e[29m\]'
+
+    # Forground colors - Wrapped in \[\] to prevent bash from counting them as displayed characters.
+    readonly BLACK='\[\e[30m\]'
+    readonly RED='\[\e[31m\]'
+    readonly GREEN='\[\e[32m\]'
+    readonly YELLOW='\[\e[33m\]'
+    readonly BLUE='\[\e[34m\]'
+    readonly MAGENTA='\[\e[35m\]'
+    readonly CYAN='\[\e[36m\]'
+    readonly WHITE='\[\e[37m\]'
+
+    # Background colors - Wrapped in \[\] to prevent bash from counting them as displayed characters.
+    readonly BLACKBG='\[\e[40m\]'
+    readonly REDBG='\[\e[41m\]'
+    readonly GREENBG='\[\e[42m\]'
+    readonly YELLOWBG='\[\e[43m\]'
+    readonly BLUEBG='\[\e[44m\]'
+    readonly MAGENTABG='\[\e[45m\]'
+    readonly CYANBG='\[\e[46m\]'
+    readonly WHITEBG='\[\e[47m\]'
+
+    # Some themes may find the OS type handy. E.g., there are definite display differences
+    # between Linux standalone vs Linux on WSL.
+    case "$OSTYPE" in
+        linux*)
+            INVITILO_OS="linux"
+            if env | grep -q "WSL"; then
+                # Running in WSL
+                INVITILO_OS="linux-wsl"
+            fi
+            ;;
+        darwin*)  INVITILO_OS="macos";;
+        cygwin*)  INVITILO_OS="windows-cygwin";;
+        msys*)    INVITILO_OS="windows-msys";;
+        *bsd*)    INVITILO_OS="bsd-$OSTYPE";;
+        *)        INVITILO_OS="unknown";;
+    esac
+    readonly INVITILO_OS
+
+    # # shellcheck disable=SC2155 # OK for script to crash if the var is not set.
+    INVITILO_ROOT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+    readonly INVITILO_ROOT_DIR
+    readonly INVITILO_THEME_DIR="${INVITILO_ROOT_DIR}/themes"
+    readonly INVITILO_THEME_EXT=".theme"
+
+    readonly INVITILO_INIT_COMPLETE=true
+}
+invitilo_init
+
 invitilo_list() {
-    # List available themes without the .pi-theme extension
+    # List available themes.
     echo "Available themes (* = active):"
     for theme in "${INVITILO_THEME_DIR}"/*"${INVITILO_THEME_EXT}"; do
-        theme_name=$(basename "$theme" ${INVITILO_THEME_EXT})
+        theme_name=$(basename "$theme" "${INVITILO_THEME_EXT}")
+        if ! invitilo_validate_theme "${theme_name}"; then
+            continue
+        fi
         if [ "$theme_name" == "$INVITILO_THEME" ]; then
             echo "* $theme_name"
         else
@@ -84,56 +102,82 @@ invitilo_list() {
     done
 }
 
+invitilo_validate_theme() {
+    local theme_name=$1
+    local theme_path="${INVITILO_THEME_DIR}/$1${INVITILO_THEME_EXT}"
+    # Validate the theme name.
+    if [ -z "$theme_name" ] || [ ! -f "${theme_path}" ]; then
+        echo "Error: Theme name is required or theme not found: $theme_name"
+        return 1
+    fi
+
+    # Validate the theme file: are all required functions declared?
+    if ! bash -c "
+        source '${theme_path}'; \
+        declare -F invitilo_theme_init >/dev/null && \
+        declare -F invitilo_theme_prompt >/dev/null
+    " 2>/dev/null; then
+        echo "Error: Theme file does not properly define invitilo_theme_init() or invitilo_theme_prompt() function."
+        return 1
+    fi
+
+    return 0
+}
+
 
 invitilo_start() {
+    # set -x
+
     invitilo_ensure_sourced
 
     # Save the original PS1 prompt if it hasn't been saved already
     if [ -z "${INVITILO_PS1+x}" ]; then
         export INVITILO_PS1="$PS1"
     fi
-    # echo -E "INVITILO_PS1: $INVITILO_PS1"
 
     # Verify the desired theme exists, falling back to the default theme. If the default
     # can't befound either, then revert to the original prompt.
-    THEME_NAME="$1"
-    if [ -z "$THEME_NAME" ]; then
-        THEME_NAME="default"
+    local theme_name="$1"
+    # If no theme specified, continue with current theme if set. Otherwise, use default.
+    if [ -z "$theme_name" ]; then
+        if [ -n "$INVITILO_THEME" ]; then
+            echo "Prompt theme not specified; using currently active theme: ${INVITILO_THEME}"
+            return 1
+        fi
+        echo "Prompt theme not specified; using default theme."
+        theme_name="default"
     fi
-    if [ ! -f "${INVITILO_THEME_DIR}/${THEME_NAME}${INVITILO_THEME_EXT}" ]; then
-        echo "Prompt theme not found: ${THEME_NAME}"
-        THEME_NAME="default"
-        if [ ! -f "${INVITILO_THEME_DIR}/${THEME_NAME}${INVITILO_THEME_EXT}" ]; then
+    # If specified theme is not valid, use the current theme if set. Otherwise, use default.
+    if ! invitilo_validate_theme "${theme_name}"; then
+        echo "Prompt theme not found: ${theme_name}"
+        if [ -n "$INVITILO_THEME" ]; then
+            echo "Using currently active theme: ${INVITILO_THEME}"
+            return 1
+        fi
+        theme_name="default"
+        if ! invitilo_ensure_sourced "${theme_name}"; then
             echo "Default prompt theme not found; using orignal prompt."
             stop_invitilo
-            exit 1
+            return 1
         fi
     fi
 
-    export INVITILO_THEME="${THEME_NAME}"
+    export INVITILO_THEME="${theme_name}"
 
     # Unload the previous theme if it exists.
     unset invitilo_theme_init
     unset invitilo_theme_prompt
 
     # Load the new theme.
-    declare -A AFFIX
-    # shellcheck disable=SC1090
-    source "${INVITILO_THEME_DIR}/${THEME_NAME}${INVITILO_THEME_EXT}"
+    # shellcheck disable=SC1090 # ShellCheck can't detect the theme file.
+    source "${INVITILO_THEME_DIR}/${theme_name}${INVITILO_THEME_EXT}"
 
-    AFFIX[OTHER]="ABC"
-
-    # # display all the elements of the associative array AFFIX
-    # for key in "${!AFFIX[@]}"; do
-    #     echo "$key: ${AFFIX[$key]}"
-    # done
-
-    invitilo_theme_prompt
-    # echo -E "PROMPT: $PROMPT"
+    # invitilo_theme_init
+    # invitilo_theme_prompt
 
     PROMPT_COMMAND=invitilo
 
-    echo "Invitilo: Prompt theme ${THEME_NAME} loaded."
+    echo "Invitilo: Prompt theme ${theme_name} loaded."
 }
 
 invitilo_stop() {
@@ -158,6 +202,7 @@ invitilo_newline() {
         IFS=';' read -rsdR -p $'\e[s\e[6n' _ COL
         echo -ne "\e[u"
         if (( COL > 1 )); then
+            # shellcheck disable=SC2034 # Used in themes.
             NEWLINE="${BOLD}${RED}␤${RESET}\n"
         fi
     fi
@@ -167,26 +212,38 @@ invitilo_python_venv() {
     # Get the current Python virtual environment name.
     VENV=""
     if [ -n "$VIRTUAL_ENV_PROMPT" ]; then
+        # shellcheck disable=SC2034 # Used in themes.
         VENV="${VENV_PREFIX}${VIRTUAL_ENV_PROMPT}${VENV_SUFFIX}"
     fi
 }
 
+# shellcheck disable=SC2034 # Variables used in themes.
 invitilo_git_branch() {
     # Get the current git local and remote branch names.
-    #GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
     GIT_REMOTE_BRANCH=""
+    GIT_AHEAD=""
+    GIT_BEHIND=""
     GIT_BRANCH=$(git branch 2>/dev/null | grep '\*' | sed 's/* //')
     if [[ -n "$GIT_BRANCH" ]]; then
         GIT_BRANCH="${GIT_BRANCH_PREFIX}${GIT_BRANCH}${GIT_BRANCH_SUFFIX}"
+        # Check if the current branch is tracking a remote branch
+        GIT_REMOTE_BRANCH=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)
+        if [[ -n "$GIT_REMOTE_BRANCH" ]]; then
+            GIT_REMOTE_BRANCH="${GIT_REMOTE_BRANCH_PREFIX}${GIT_REMOTE_BRANCH}${GIT_REMOTE_BRANCH_SUFFIX}"
+        fi
+        # Get ahead/behind counts.
+        read -r GIT_AHEAD GIT_BEHIND <<< "$(git rev-list --left-right --count HEAD...'@{u}' 2>/dev/null)"
+        GIT_AHEAD="${GIT_AHEAD_PREFIX}${GIT_AHEAD}${GIT_AHEAD_SUFFIX}"
+        GIT_BEHIND="${GIT_BEHIND_PREFIX}${GIT_BEHIND}${GIT_BEHIND_SUFFIX}"
     fi
 }
 
 invitilo_status() {
     # Get the status of the last command.
-    if (( STATUS == 0 )); then
-        STATUS="${SUCCESS_STATUS}"
+    if (( COMMAND_STATUS == 0 )); then
+        COMMAND_STATUS="${COMMAND_STATUS_SUCCESS}"
     else
-        STATUS="${ERROR_STATUS}"
+        COMMAND_STATUS="${COMMAND_STATUS_ERROR}"
     fi
 }
 
@@ -194,12 +251,12 @@ invitilo_status() {
 invitilo() {
     # Need to get the status of the last command before calling any functions.
     # initilo_status will update the value for use in the prompt.
-    STATUS=$?
+    COMMAND_STATUS=$?
 
     # Ideally, these functions would ever need to be called once. But we call
     # them here to ensure the values of the variables are sure to be unaffected
     # by other processes.
-    invitilo_init_colors
+    # invitilo_init_colors
     invitilo_theme_init
 
     # The values of the variables set by these functions may vary by the state
@@ -233,7 +290,8 @@ OPTIONS
     -h, --help   Show this help message.
     --list       List available themes.
     --stop       Stop invitilo and restore the original prompt.
-    [theme]      Start invitilo with the specified theme. The default theme
+    --version    Show the version of Invitilo.
+    [theme]      Start Invitilo with the specified theme. The default theme
                  is used if not specified.
 EOF
         ;;
@@ -263,3 +321,8 @@ EOF
         invitilo_start "$1"
         ;;
 esac
+
+if [ "$?" -ne 0 ]; then
+    echo "error"
+    sleep 15
+fi

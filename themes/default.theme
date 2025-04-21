@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 # shellcheck disable=SC2034
+xinvitilo_theme_init() { true; }
+
+# shellcheck disable=SC2034
 invitilo_theme_prompt() {
     # PROMPT="${NEWLINE}${BOLD}${CYAN}Invitilo${RESET} ${BOLD}${WHITE}▸ ${BLACK}\$${RESET} "
     PROMPT="${NEWLINE}💻 ${BOLD}${GREEN}\u@\h${RESET}:${BOLD}${BLUE}\w${RESET}\$ "

@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 
-# GIT_BRANCH_WRAPPER="<${GIT_BRANCH}>"
+
+# shellcheck disable=SC2034
+(
+INVITILO_THEME_DESCR="Test theme"
+)
+
+# shellcheck disable=SC2034
+invitilo_theme_init() { true; }
 
 # shellcheck disable=SC2034
 invitilo_theme_prompt() {
