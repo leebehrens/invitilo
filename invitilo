@@ -77,29 +77,67 @@ invitilo_init() {
     readonly INVITILO_OS
 
     # # shellcheck disable=SC2155 # OK for script to crash if the var is not set.
-    INVITILO_ROOT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+    INVITILO_ROOT_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
     readonly INVITILO_ROOT_DIR
     readonly INVITILO_THEME_DIR="${INVITILO_ROOT_DIR}/themes"
     readonly INVITILO_THEME_EXT=".theme"
+
+    echo "INVITILO_ROOT_DIR:  $INVITILO_ROOT_DIR"
+    echo "INVITILO_THEME_DIR: $INVITILO_THEME_DIR"
 
     readonly INVITILO_INIT_COMPLETE=true
 }
 invitilo_init
 
+# Args:
+#   $1 Theme name pattern (optional, wildecards ? and * allowed)
+# Returns:
+#   0 Success
+#   1 Error - invalid theme name pattern
 invitilo_list() {
+    local pattern="$1"
+    # If there is no pattern, use * to match all theme files that don't start
+    # with a ".".
+    if [[ -z "$pattern" ]]; then
+        pattern="*"
+    fi
+    if [[ "$pattern" == *"/"* ]]; then
+        echo "Error: Theme name pattern may not contain '/'."
+        return 1
+    fi
+
     # List available themes.
-    echo "Available themes (* = active):"
-    for theme in "${INVITILO_THEME_DIR}"/*"${INVITILO_THEME_EXT}"; do
+    local theme_count=0
+    # Set nullglob to avoid returning the pattern itself if no matches are found.
+    local original_nullglob # Declared separately to avoid masking return code.
+    original_nullglob=$(shopt -p nullglob)
+    shopt -s nullglob
+    for theme in "${INVITILO_THEME_DIR}"/${pattern}"${INVITILO_THEME_EXT}"; do
+        # This doesn't appear to be needed.
+        # # Skip the specified file is not in the theme directory.
+        # if [[ "$theme" != "$INVITILO_THEME_DIR/"* ]]; then
+        #     continue
+        # fi
         theme_name=$(basename "$theme" "${INVITILO_THEME_EXT}")
-        if ! invitilo_validate_theme "${theme_name}"; then
+        if ! invitilo_is_valid_theme "${theme_name}"; then
             continue
+        fi
+        if (( theme_count == 0 )); then
+            echo "Available themes (* = active):"
         fi
         if [ "$theme_name" == "$INVITILO_THEME" ]; then
             echo "* $theme_name"
         else
             echo "  $theme_name"
         fi
+        ((theme_count++))
     done
+    if (( theme_count == 0 )); then
+        echo "No themes found matching theme name pattern: $pattern"
+    fi
+    # Ensure to restore the original value of the nullglob flag later
+    # Single quotes to delay evaluation until the trap is executed.
+    trap '$original_nullglob' RETURN
 }
 
 invitilo_is_valid_theme() {
@@ -273,30 +311,26 @@ invitilo() {
     PS1="${PROMPT}"
 }
 
+echo "---> $1 $2 $3 <---"
+
 case "$1" in
     --help|-h)
         cat <<EOF
-NAME
-    invitilo - An enhanced command prompt
-
-SYNOPSIS
+USAGE
     . invitilo [option] [theme]
     source invitilo [option] [theme]
 
-DESCRIPTION
-    A customizable command prompt with theme support.
-
 OPTIONS
-    -h, --help   Show this help message.
-    --list       List available themes.
-    --stop       Stop invitilo and restore the original prompt.
-    --version    Show the version of Invitilo.
-    [theme]      Start Invitilo with the specified theme. The default theme
-                 is used if not specified.
+    -h, --help           Show this help message.
+    --list ["pattern"]   List available themes. Wilcards * and ? allowed in the
+                         pattern, and if used enclose in double quotes.
+    --stop               Stop Invitilo and restore the original prompt.
+    --version            Show the version of Invitilo.
+    [theme]              Start Invitilo with the specified theme.
 EOF
         ;;
     --list)
-        invitilo_list
+        invitilo_list "$2"
         ;;
     --stop)
         invitilo_stop

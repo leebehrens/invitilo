@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+
+# shellcheck disable=SC2034
+(
+INVITILO_THEME_DESCR="Test theme"
+)
+
+# shellcheck disable=SC2034
+invitilo_theme_init() { true; }
+
+# shellcheck disable=SC2034
+invitilo_theme_prompt() {
+    PROMPT="${NEWLINE}${BOLD}${RED}Invitilo${RESET} ${BOLD}${BLACK}${GIT_BRANCH}${RESET} ${BOLD}${WHITE}▸ ${BLUE}\$${RESET} "
+}
