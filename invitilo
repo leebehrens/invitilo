@@ -72,6 +72,7 @@ invitilo_init() {
         cygwin*)  INVITILO_OS="windows-cygwin";;
         msys*)    INVITILO_OS="windows-msys";;
         *bsd*)    INVITILO_OS="bsd-$OSTYPE";;
+        # TODO: Linux on Crostini/Chromebook?
         *)        INVITILO_OS="unknown";;
     esac
     readonly INVITILO_OS
@@ -95,6 +96,9 @@ invitilo_init
 #   0 Success
 #   1 Error - invalid theme name pattern
 invitilo_list() {
+    invitilo_ensure_sourced
+    invitilo_init
+
     local pattern="$1"
     # If there is no pattern, use * to match all theme files that don't start
     # with a ".".
@@ -112,12 +116,23 @@ invitilo_list() {
     local original_nullglob # Declared separately to avoid masking return code.
     original_nullglob=$(shopt -p nullglob)
     shopt -s nullglob
+
+    # Determine the max width of the theme names.
+    local theme_name_width=0
     for theme in "${INVITILO_THEME_DIR}"/${pattern}"${INVITILO_THEME_EXT}"; do
-        # This doesn't appear to be needed.
-        # # Skip the specified file is not in the theme directory.
-        # if [[ "$theme" != "$INVITILO_THEME_DIR/"* ]]; then
-        #     continue
-        # fi
+        # Shouldn't have to check that theme is in the theme directory.
+        theme_name=$(basename "$theme" "${INVITILO_THEME_EXT}")
+        if ! invitilo_is_valid_theme "${theme_name}"; then
+            continue
+        fi
+        if (( ${#theme_name} > theme_name_width )); then
+            theme_name_width=${#theme_name}
+        fi
+    done
+
+    # Display the themes.
+    for theme in "${INVITILO_THEME_DIR}"/${pattern}"${INVITILO_THEME_EXT}"; do
+        # Shouldn't have to check that theme is in the theme directory.
         theme_name=$(basename "$theme" "${INVITILO_THEME_EXT}")
         if ! invitilo_is_valid_theme "${theme_name}"; then
             continue
@@ -125,15 +140,43 @@ invitilo_list() {
         if (( theme_count == 0 )); then
             echo "Available themes (* = active):"
         fi
+
+        unset invitilo_theme_init
+        unset invitilo_theme_prompt
+
+        # shellcheck disable=SC1090 # $theme contains an absolute path
+        source "$theme"
+        invitilo_theme_init
+        # Use sample values for display purposes.
+        NEWLINE=""
+        VENV="${VENV_PREFIX}venv${VENV_SUFFIX}"
+        GIT_BRANCH="${GIT_BRANCH_PREFIX}branch${GIT_BRANCH_SUFFIX}"
+        GIT_REMOTE_BRANCH="${GIT_REMOTE_BRANCH_PREFIX}remote${GIT_REMOTE_BRANCH_SUFFIX}"
+        GIT_AHEAD="${GIT_AHEAD_PREFIX}1${GIT_AHEAD_SUFFIX}"
+        GIT_BEHIND="${GIT_BEHIND_PREFIX}2${GIT_BEHIND_SUFFIX}"
+        COMMAND_STATUS="$COMMAND_STATUS_SUCCESS"
+        invitilo_theme_prompt
+        # Convert prompt escape sequences for display.
+        local prompt_preview="${PROMPT//\\n/ ${BOLD}${BLACK}↵${RESET} }" # ↲ ↵ ⏎ ⮐ ⮒ ␤
+        prompt_preview="${prompt_preview//\\[}"
+        prompt_preview="${prompt_preview//\\]}"
+        sample_prompt="${sample_prompt//\\e/\\033}"
+        # Replace placeholders with actual values for display.
+        prompt_preview="${prompt_preview//\\u/user}"
+        prompt_preview="${prompt_preview//\\h/host}"
+        prompt_preview="${prompt_preview//\\w/\~/directory}"
+
         if [ "$theme_name" == "$INVITILO_THEME" ]; then
-            echo "* $theme_name"
+            printf "* %-*s   %b\n" "$theme_name_width" "$theme_name" "$prompt_preview"
         else
-            echo "  $theme_name"
+            printf "  %-*s   %b\n" "$theme_name_width" "$theme_name" "$prompt_preview"
         fi
         ((theme_count++))
     done
     if (( theme_count == 0 )); then
         echo "No themes found matching theme name pattern: $pattern"
+    else
+        invitilo_start "$INVITILO_THEME"
     fi
     # Ensure to restore the original value of the nullglob flag later
     # Single quotes to delay evaluation until the trap is executed.
@@ -337,15 +380,15 @@ EOF
         ;;
     --version)
         cat VERSION
-        echo "----"
-        VERSION=$(head -n 1 VERSION | (IFS=' ' read -r _ ver ; echo "$ver"))
-        echo "VERSION=$VERSION"
-        if [[ "$VERSION" == *"-"* ]]; then
-            PRERELEASE=true
-        else
-            PRERELEASE=false
-        fi
-        echo "PRERELEASE=$PRERELEASE"
+        # echo "----"
+        # VERSION=$(head -n 1 VERSION | (IFS=' ' read -r _ ver ; echo "$ver"))
+        # echo "VERSION=$VERSION"
+        # if [[ "$VERSION" == *"-"* ]]; then
+        #     PRERELEASE=true
+        # else
+        #     PRERELEASE=false
+        # fi
+        # echo "PRERELEASE=$PRERELEASE"
         ;;
     *)
         if [[ "$1" == -* ]]; then

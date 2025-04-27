@@ -10,7 +10,7 @@ Look! A shiny programming challenge to solve.
 
 It started with a few simple formatting changes to `PS1` in my `.bashrc`. Then it was ensuring the prompt always started on a new line. Up next was how to format the Python virtual environment indicator when it appeared in the prompt. And then Git branch info.
 
-By then, I (again) ran across a few screen shots with [Powerline](https://github.com/powerline/powerline)-like command prompts of varying themes. Hmm...
+By then, I (again) ran across a few screen shots with [Powerline](https://github.com/powerline/powerline)-like command prompts of varying themes. Themes, hmm...
 
 Look! Another shiny programming challenge to solve.
 
