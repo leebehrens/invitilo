@@ -23,14 +23,14 @@ jobs:
           echo "::set-output name=VERSION::$VERSION"
           echo "::set-output name=PRERELEASE::$PRERELEASE"
 
-      - name: Check for install file
-        id: check_install
-        run: |
-          if [ -f "install" ]; then
-            echo "INSTALL_EXISTS=true" >> $GITHUB_ENV
-          else
-            echo "INSTALL_EXISTS=false" >> $GITHUB_ENV
-          fi
+      # - name: Check for install file
+      #   id: check_install
+      #   run: |
+      #     if [ -f "install" ]; then
+      #       echo "INSTALL_EXISTS=true" >> $GITHUB_ENV
+      #     else
+      #       echo "INSTALL_EXISTS=false" >> $GITHUB_ENV
+      #     fi
 
       - name: Create GitHub Release
         env:
@@ -42,4 +42,5 @@ jobs:
           tag: v${{ steps.read_version.outputs.VERSION }}
           prerelease: ${{ steps.read_version.outputs.PRERELEASE }}
           artifacts: |
-            ${{ steps.check_install.outputs.INSTALL_EXISTS == 'true' && 'install' || '' }}
+            install
+            v${{ steps.read_version.outputs.VERSION }}.tar.gz
