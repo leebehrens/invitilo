@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+
+# Invitilo: An command prompt
+# Invitilo installer script
+
+
+RELEASE_TAG="$1"
+
+read -r -p "This is preliminary code. Continue? [y/N]: " response
+response=${response,,} # Convert to lowercase
+if [[ "$response" != "y" && "$response" != "yes" ]]; then
+    echo "Exiting script."
+    exit 0
+fi
+
+# Check if jq is installed
+if ! command -v jq &> /dev/null; then
+    echo "Error: 'jq' is not installed. Please install it to proceed."
+    exit 1
+fi
+
+INVITILO_INSTALL_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+INVITILO_INSTALL_FILE="$(basename "${BASH_SOURCE[0]}")"
+
+# Determine the user's config dir for Invitilo. Create it if it doesn't exist.
+INVITILO_CONFIG_DIR="$HOME/.config/invitilo"
+if [ -d "$XDG_CONFIG_HOME" ]; then
+    INVITILO_CONFIG_DIR="$XDG_CONFIG_HOME/invitilo"
+fi
+mkdir -p "$INVITILO_CONFIG_DIR"
+# echo "$INVITILO_CONFIG_DIR"
+if [ ! -d "$INVITILO_CONFIG_DIR" ]; then
+    echo "Failed to create directory: $INVITILO_CONFIG_DIR"
+    exit 1
+fi
+
+# Determine the user's bin and bin/download dir for Invitilo. Create them if they don't exist.
+INVITILO_BIN_DIR="$HOME/.local/bin/invitilo"
+if [ -d "$XDG_BIN_HOME" ]; then
+    INVITILO_BIN_DIR="$XDG_BIN_HOME/invitilo"
+fi
+INVITILO_BIN_DOWNLOAD_DIR="$INVITILO_BIN_DIR/download"
+mkdir -p "$INVITILO_BIN_DOWNLOAD_DIR"
+if [ ! -d "$INVITILO_BIN_DOWNLOAD_DIR" ]; then
+    echo "Failed to create directory: $INVITILO_BIN_DOWNLOAD_DIR"
+    exit 1
+fi
+
+# Check if this script is already in the bin directory.
+if [ "$INVITILO_INSTALL_DIR" != "$INVITILO_BIN_DIR" ]; then
+    cp "$INVITILO_INSTALL_DIR/$INVITILO_INSTALL_FILE" "$INVITILO_BIN_DIR/"
+    chmod u+x "$INVITILO_BIN_DIR/$INVITILO_INSTALL_FILE"
+fi
+
+
+GITHUB_REPO="leebehrens/invitilo"
+if [ -z "$RELEASE_TAG" ]; then
+    # Fetch the latest release version
+    LATEST_RELEASE=$(curl -s "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | jq -r '.tag_name')
+    if [ -z "$LATEST_RELEASE" ]; then
+        echo "Failed to fetch the latest release."
+        exit 1
+    fi
+    echo "Latest release: $LATEST_RELEASE"
+elif [ "$RELEASE_TAG" == "prerelease" ]; then
+    # Fetch the latest pre-release version
+    LATEST_RELEASE=$(curl -s "https://api.github.com/repos/$GITHUB_REPO/releases" | jq -r '.[] | select(.prerelease) | .tag_name' | head -n 1)
+    if [ -z "$LATEST_RELEASE" ]; then
+        echo "Failed to fetch the latest pre-release."
+        exit 1
+    fi
+    echo "Latest pre-release: $LATEST_RELEASE"
+else
+    # Use the specified release tag
+    LATEST_RELEASE=$(curl -s "https://api.github.com/repos/$GITHUB_REPO/releases/tags/$RELEASE_TAG" | jq -r '.tag_name')
+    if [ -z "$LATEST_RELEASE" ]; then
+        echo "Release tag '$RELEASE_TAG' not found."
+        exit 1
+    fi
+    echo "Specified release: $LATEST_RELEASE"
+fi
+
+# Download the release asset
+printf "Downloading release file %s... " "$LATEST_RELEASE"
+ASSET_NAME="$LATEST_RELEASE.tar.gz"
+ASSET_URL="https://github.com/leebehrens/invitilo/archive/refs/tags/$ASSET_NAME"
+curl -sL "$ASSET_URL" -o "$INVITILO_BIN_DOWNLOAD_DIR/$ASSET_NAME"
+if [ $? -ne 0 ]; then
+    printf "Failed\n"
+    exit 1
+fi
+printf "Done\n"
+
+# Extract the release asset
+printf "Extracting release... "
+tar -xzf "$INVITILO_BIN_DOWNLOAD_DIR/$ASSET_NAME" -C "$INVITILO_BIN_DIR"
+if [ $? -ne 0 ]; then
+    printf "Failed\n"
+    exit 1
+fi
+printf "Done\n"
