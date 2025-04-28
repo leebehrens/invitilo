@@ -41,6 +41,4 @@ jobs:
           commit: main
           tag: v${{ steps.read_version.outputs.VERSION }}
           prerelease: ${{ steps.read_version.outputs.PRERELEASE }}
-          artifacts: |
-            install
-            v${{ steps.read_version.outputs.VERSION }}.tar.gz
+          artifacts: "install,v${{ steps.read_version.outputs.VERSION }}.tar.gz"
