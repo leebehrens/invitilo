@@ -23,12 +23,23 @@ jobs:
           echo "::set-output name=VERSION::$VERSION"
           echo "::set-output name=PRERELEASE::$PRERELEASE"
 
+      - name: Check for install file
+        id: check_install
+        run: |
+          if [ -f "install" ]; then
+            echo "INSTALL_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "INSTALL_EXISTS=false" >> $GITHUB_ENV
+          fi
+
       - name: Create GitHub Release
         env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         uses: ncipollo/release-action@v1
         with:
           skipIfReleaseExists: true
           commit: main
           tag: v${{ steps.read_version.outputs.VERSION }}
           prerelease: ${{ steps.read_version.outputs.PRERELEASE }}
+          artifacts: |
+            ${{ steps.check_install.outputs.INSTALL_EXISTS == 'true' && 'install' || '' }}

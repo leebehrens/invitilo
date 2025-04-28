@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Invitilo: An enhanced command prompt
+# Invitilo: A command prompt
 # Run using . or source:
 #   . invitilo [options] [theme]
 #   source invitilo [options] [theme]
