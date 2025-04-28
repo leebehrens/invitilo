@@ -32,6 +32,17 @@ jobs:
       #       echo "INSTALL_EXISTS=false" >> $GITHUB_ENV
       #     fi
 
+      - name: Create .tar.gz artifact
+        run: |
+          tar -czf v${{ steps.read_version.outputs.VERSION }}.tar.gz .
+
+      - name: Verify install file exists
+        run: |
+          if [ ! -f "install" ]; then
+            echo "Error: 'install' file is missing."
+            exit 1
+          fi
+
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
