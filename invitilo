@@ -255,7 +255,7 @@ invitilo_start() {
     # shellcheck disable=SC1090 # ShellCheck can't detect the theme file.
     source "${INVITILO_THEME_DIR}/${theme_name}${INVITILO_THEME_EXT}"
 
-    PROMPT_COMMAND=invitilo
+    PROMPT_COMMAND=invitilo_prompt
 
     echo "Invitilo: Prompt theme ${theme_name} loaded."
     return $return_result
@@ -329,7 +329,7 @@ invitilo_status() {
 }
 
 
-invitilo() {
+invitilo_prompt() {
     # Need to get the status of the last command before calling any functions.
     # initilo_status will update the value for use in the prompt.
     COMMAND_STATUS=$?
