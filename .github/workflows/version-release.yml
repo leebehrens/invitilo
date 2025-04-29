@@ -1,4 +1,4 @@
-name: Tag new versions
+name: Create release if new version
 on:
   push:
     branches:
@@ -10,6 +10,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Verify VERSION file exists
+        run: |
+          if [ ! -f "VERSION" ]; then
+            echo "Error: 'VERSION' file is missing."
+            exit 1
+          fi
 
       - name: Read version from file
         id: read_version
@@ -23,25 +30,16 @@ jobs:
           echo "::set-output name=VERSION::$VERSION"
           echo "::set-output name=PRERELEASE::$PRERELEASE"
 
-      # - name: Check for install file
-      #   id: check_install
+      # - name: Verify install file exists
       #   run: |
-      #     if [ -f "install" ]; then
-      #       echo "INSTALL_EXISTS=true" >> $GITHUB_ENV
-      #     else
-      #       echo "INSTALL_EXISTS=false" >> $GITHUB_ENV
+      #     if [ ! -f "install" ]; then
+      #       echo "Error: 'install' file is missing."
+      #       exit 1
       #     fi
 
       - name: Create .tar.gz artifact
         run: |
           tar -czf v${{ steps.read_version.outputs.VERSION }}.tar.gz .
-
-      - name: Verify install file exists
-        run: |
-          if [ ! -f "install" ]; then
-            echo "Error: 'install' file is missing."
-            exit 1
-          fi
 
       - name: Create GitHub Release
         env:
@@ -52,4 +50,6 @@ jobs:
           commit: main
           tag: v${{ steps.read_version.outputs.VERSION }}
           prerelease: ${{ steps.read_version.outputs.PRERELEASE }}
-          artifacts: "install,v${{ steps.read_version.outputs.VERSION }}.tar.gz"
+          artifacts: |
+            install-invitilo
+            v${{ steps.read_version.outputs.VERSION }}.tar.gz

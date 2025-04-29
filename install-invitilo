@@ -6,6 +6,22 @@
 
 RELEASE_TAG="$1"
 
+if [[ "$RELEASE_TAG" == "-h" || "$RELEASE_TAG" == "--help" ]]; then
+    echo "Invitilo installer"
+    echo ""
+    echo "Usage: $0 [release_tag]"
+    echo ""
+    echo "If no release tag is specified, or if 'latest' is specified, the latest release will be downloaded."
+    echo "If 'prerelease' is specified, the latest pre-release will be downloaded."
+    echo "If a specific release tag is specified (e.g., 'v1.0.0'), that release will be downloaded."
+    exit 0
+fi
+
+if [[ "$RELEASE_TAG" =~ ^- ]]; then
+    echo "Error: invalid option/release tag. Use $0 -h for help."
+    exit 1
+fi
+
 read -r -p "This is preliminary code. Continue? [y/N]: " response
 response=${response,,} # Convert to lowercase
 if [[ "$response" != "y" && "$response" != "yes" ]]; then
@@ -35,14 +51,21 @@ if [ ! -d "$INVITILO_CONFIG_DIR" ]; then
 fi
 
 # Determine the user's bin and bin/download dir for Invitilo. Create them if they don't exist.
-INVITILO_BIN_DIR="$HOME/.local/bin/invitilo"
+USER_BIN_DIR="$HOME/.local/bin"
 if [ -d "$XDG_BIN_HOME" ]; then
-    INVITILO_BIN_DIR="$XDG_BIN_HOME/invitilo"
+    USER_BIN_DIR="$XDG_BIN_HOME"
 fi
+INVITILO_BIN_DIR="$USER_BIN_DIR/invitilo.d"
 INVITILO_BIN_DOWNLOAD_DIR="$INVITILO_BIN_DIR/download"
+INVITILO_BIN_BASHRC_DIR="$INVITILO_BIN_DIR/bashrc"
 mkdir -p "$INVITILO_BIN_DOWNLOAD_DIR"
 if [ ! -d "$INVITILO_BIN_DOWNLOAD_DIR" ]; then
     echo "Failed to create directory: $INVITILO_BIN_DOWNLOAD_DIR"
+    exit 1
+fi
+mkdir -p "$INVITILO_BIN_BASHRC_DIR"
+if [ ! -d "$INVITILO_BIN_BASHRC_DIR" ]; then
+    echo "Failed to create directory: $INVITILO_BIN_BASHRC_DIR"
     exit 1
 fi
 
@@ -99,3 +122,72 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 printf "Done\n"
+
+# Create invitilo command.
+printf "Creating invitilo command... "
+cat <<EOF > "$USER_BIN_DIR/invitilo"
+#!/usr/bin/env bash
+
+# Invitilo: A command prompt
+# Launcher script for Invitilo
+
+# This script is automatically generated and should not be modified.
+
+# For use via the command-line.
+invitilo() {
+    source $INVITILO_BIN_DIR/invitilo-${LATEST_RELEASE#v}/invitilo "\$@"
+}
+
+# For startup via .bashrc.
+invitilo "\$@"
+EOF
+chmod u+x "$USER_BIN_DIR/invitilo"
+printf "Done\n"
+
+
+
+# Copy .bashrc to bashrc backup directory.
+printf "Backing up .bashrc... "
+if [ -f "$HOME/.bashrc" ]; then
+    # Find the highest numbered backup file. There is a more elegant way to do
+    # this using external commands, but this way sticks with bash builtins.
+    BACKUP_INDEX=0
+    for file in "$INVITILO_BIN_BASHRC_DIR"/bashrc.*; do
+        # Extract the numeric part after 'bashrc.' using parameter expansion
+        if [[ $file =~ bashrc\.([0-9]+)$ ]]; then
+            num=${BASH_REMATCH[1]}
+            # Update BACKUP_INDEX to the highest number found
+            (( num > BACKUP_INDEX )) && BACKUP_INDEX=$num
+        fi
+    done
+    # Test if .bashrc is the same as the last backup file.
+    LAST_BACKUP_FILE="$INVITILO_BIN_BASHRC_DIR/bashrc.$BACKUP_INDEX"
+    if [ ! -f "$LAST_BACKUP_FILE" ] || ! cmp -s "$HOME/.bashrc" "$LAST_BACKUP_FILE"; then
+        BACKUP_INDEX=$((BACKUP_INDEX + 1))
+        cp "$HOME/.bashrc" "$INVITILO_BIN_BASHRC_DIR/bashrc.$BACKUP_INDEX"
+        if [ $? -ne 0 ]; then
+            printf "Failed\n"
+            exit 1
+        fi
+        printf "Done\n"
+    else
+        printf "Skipped (no changes)\n"
+    fi
+fi
+
+# Append the invitilo source line to .bashrc if it doesn't already exist
+if ! grep -qE "^\s*source\s+$USER_BIN_DIR/invitilo(\s+.*)?$" "$HOME/.bashrc"; then
+    printf "Adding invitilo to .bashrc... "
+    cat <<EOF >> "$HOME/.bashrc"
+
+# Invitilo: A command prompt
+source $USER_BIN_DIR/invitilo
+EOF
+    if [ $? -ne 0 ]; then
+        printf "Failed\n"
+        exit 1
+    fi
+    printf "Done\n"
+else
+    printf "Skipped (already exists)\n"
+fi
