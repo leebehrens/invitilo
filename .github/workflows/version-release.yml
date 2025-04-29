@@ -27,8 +27,11 @@ jobs:
           else
               PRERELEASE=false
           fi
-          echo "::set-output name=VERSION::$VERSION"
-          echo "::set-output name=PRERELEASE::$PRERELEASE"
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "PRERELEASE=${PRERELEASE}" >> $GITHUB_OUTPUT
+
+      # echo "::set-output name=VERSION::$VERSION"
+      # echo "::set-output name=PRERELEASE::$PRERELEASE"
 
       # - name: Verify install file exists
       #   run: |
@@ -37,9 +40,10 @@ jobs:
       #       exit 1
       #     fi
 
-      - name: Create .tar.gz artifact
-        run: |
-          tar -czf v${{ steps.read_version.outputs.VERSION }}.tar.gz .
+      # - name: Create .tar.gz artifact
+      #   run: |
+      #     sleep 5
+      #     tar -czf v${{ steps.read_version.outputs.VERSION }}.tar.gz .
 
       - name: Create GitHub Release
         env:
@@ -52,4 +56,5 @@ jobs:
           prerelease: ${{ steps.read_version.outputs.PRERELEASE }}
           artifacts: |
             install-invitilo
-            v${{ steps.read_version.outputs.VERSION }}.tar.gz
+
+      # v${{ steps.read_version.outputs.VERSION }}.tar.gz
