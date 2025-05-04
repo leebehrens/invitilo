@@ -5,6 +5,18 @@
 #   . invitilo [options] [theme]
 #   source invitilo [options] [theme]
 
+
+read -r -p "Ready 0? " response
+echo "BASH_SOURCE[0]:   ${BASH_SOURCE[0]}"
+read -r -p "Ready 1? " response
+echo "0:                ${0}"
+read -r -p "Ready 2? " response
+echo "\$0:               $0"
+read -r -p "Ready 3? " response
+dirname_realpath="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+echo "dirname_realpath: $dirname_realpath"
+read -r -p "Ready 4? " response
+
 invitilo_ensure_sourced() {
     # Ensure the script is sourced.
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

@@ -2,45 +2,51 @@
 
 # Invitilo: An command prompt
 # Invitilo installer script
+# Why not just use a standard distro packaging format?
+# - Multiple packaging formats
 
+set -euo pipefail
 
-RELEASE_TAG="$1"
+INSTALLER_VERSION="0.1.0"
 
-if [[ "$RELEASE_TAG" == "-h" || "$RELEASE_TAG" == "--help" ]]; then
-    echo "Invitilo installer"
-    echo ""
-    echo "Usage: $0 [release_tag]"
-    echo ""
-    echo "If no release tag is specified, or if 'latest' is specified, the latest release will be downloaded."
-    echo "If 'prerelease' is specified, the latest pre-release will be downloaded."
-    echo "If a specific release tag is specified (e.g., 'v1.0.0'), that release will be downloaded."
-    exit 0
-fi
+# Check that the required external commands are available.
+EXTERNAL_CMDS=(
+    curl
+    grep
+    jq
+    realpath
+    sed
+    sort
+    tar
+)
 
-if [[ "$RELEASE_TAG" =~ ^- ]]; then
-    echo "Error: invalid option/release tag. Use $0 -h for help."
+MISSING_CMDS=()
+for cmd in "${EXTERNAL_CMDS[@]}"; do
+    if ! command -v "$cmd" &> /dev/null; then
+        MISSING_CMDS+=("$cmd")
+    fi
+done
+# echo "Missing commands: ${MISSING_CMDS[*]}"
+if [ ${#MISSING_CMDS[@]} -gt 0 ]; then
+    S=""
+    if [ ${#MISSING_CMDS[@]} -gt 1 ]; then
+        S="s"
+    fi
+    echo "Please install the following command${S} on your system:"
+    for cmd in "${MISSING_CMDS[@]}"; do
+        echo "  - $cmd"
+    done
     exit 1
 fi
 
-read -r -p "This is preliminary code. Continue? [y/N]: " response
-response=${response,,} # Convert to lowercase
-if [[ "$response" != "y" && "$response" != "yes" ]]; then
-    echo "Exiting script."
-    exit 0
-fi
-
-# Check if jq is installed
-if ! command -v jq &> /dev/null; then
-    echo "Error: 'jq' is not installed. Please install it to proceed."
-    exit 1
-fi
+GITHUB_REPO="leebehrens/invitilo"
 
 INVITILO_INSTALL_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-INVITILO_INSTALL_FILE="$(basename "${BASH_SOURCE[0]}")"
+INVITILO_INSTALL_FILE="$(basename "$(realpath "${BASH_SOURCE[0]}")")"
 
 # Determine the user's config dir for Invitilo. Create it if it doesn't exist.
 INVITILO_CONFIG_DIR="$HOME/.config/invitilo"
-if [ -d "$XDG_CONFIG_HOME" ]; then
+if [ -n "${XDG_CONFIG_HOME:-}" ] && [ -d "$XDG_CONFIG_HOME" ]; then
     INVITILO_CONFIG_DIR="$XDG_CONFIG_HOME/invitilo"
 fi
 mkdir -p "$INVITILO_CONFIG_DIR"
@@ -52,142 +58,305 @@ fi
 
 # Determine the user's bin and bin/download dir for Invitilo. Create them if they don't exist.
 USER_BIN_DIR="$HOME/.local/bin"
-if [ -d "$XDG_BIN_HOME" ]; then
+if [ -n "${XDG_BIN_HOME:-}" ] && [ -d "$XDG_BIN_HOME" ]; then
     USER_BIN_DIR="$XDG_BIN_HOME"
 fi
 INVITILO_BIN_DIR="$USER_BIN_DIR/invitilo.d"
 INVITILO_BIN_DOWNLOAD_DIR="$INVITILO_BIN_DIR/download"
-INVITILO_BIN_BASHRC_DIR="$INVITILO_BIN_DIR/bashrc"
+
 mkdir -p "$INVITILO_BIN_DOWNLOAD_DIR"
 if [ ! -d "$INVITILO_BIN_DOWNLOAD_DIR" ]; then
     echo "Failed to create directory: $INVITILO_BIN_DOWNLOAD_DIR"
     exit 1
 fi
-mkdir -p "$INVITILO_BIN_BASHRC_DIR"
-if [ ! -d "$INVITILO_BIN_BASHRC_DIR" ]; then
-    echo "Failed to create directory: $INVITILO_BIN_BASHRC_DIR"
-    exit 1
-fi
 
-# Check if this script is already in the bin directory.
-if [ "$INVITILO_INSTALL_DIR" != "$INVITILO_BIN_DIR" ]; then
-    cp "$INVITILO_INSTALL_DIR/$INVITILO_INSTALL_FILE" "$INVITILO_BIN_DIR/"
-    chmod u+x "$INVITILO_BIN_DIR/$INVITILO_INSTALL_FILE"
-fi
+# Filenames for the get_xxxx_release functions.
+HEADER_FILE="$INVITILO_BIN_DOWNLOAD_DIR/.header-"
+DATA_FILE="$INVITILO_BIN_DOWNLOAD_DIR/.data-"
 
-
-GITHUB_REPO="leebehrens/invitilo"
-if [ -z "$RELEASE_TAG" ]; then
-    # Fetch the latest release version
-    LATEST_RELEASE=$(curl -s "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | jq -r '.tag_name')
-    if [ -z "$LATEST_RELEASE" ]; then
-        echo "Failed to fetch the latest release."
-        exit 1
+get_file_timestamp() {
+    local file="$1"
+    if [ -f "$file" ]; then
+        local timestamp
+        timestamp=$(stat -c %Y "$file")
+        echo "$timestamp"
+    else
+        echo 0
     fi
-    echo "Latest release: $LATEST_RELEASE"
-elif [ "$RELEASE_TAG" == "prerelease" ]; then
-    # Fetch the latest pre-release version
-    LATEST_RELEASE=$(curl -s "https://api.github.com/repos/$GITHUB_REPO/releases" | jq -r '.[] | select(.prerelease) | .tag_name' | head -n 1)
-    if [ -z "$LATEST_RELEASE" ]; then
-        echo "Failed to fetch the latest pre-release."
-        exit 1
-    fi
-    echo "Latest pre-release: $LATEST_RELEASE"
-else
-    # Use the specified release tag
-    LATEST_RELEASE=$(curl -s "https://api.github.com/repos/$GITHUB_REPO/releases/tags/$RELEASE_TAG" | jq -r '.tag_name')
-    if [ -z "$LATEST_RELEASE" ]; then
-        echo "Release tag '$RELEASE_TAG' not found."
-        exit 1
-    fi
-    echo "Specified release: $LATEST_RELEASE"
-fi
-
-# Download the release asset
-printf "Downloading release file %s... " "$LATEST_RELEASE"
-ASSET_NAME="$LATEST_RELEASE.tar.gz"
-ASSET_URL="https://github.com/leebehrens/invitilo/archive/refs/tags/$ASSET_NAME"
-curl -sL "$ASSET_URL" -o "$INVITILO_BIN_DOWNLOAD_DIR/$ASSET_NAME"
-if [ $? -ne 0 ]; then
-    printf "Failed\n"
-    exit 1
-fi
-printf "Done\n"
-
-# Extract the release asset
-printf "Extracting release... "
-tar -xzf "$INVITILO_BIN_DOWNLOAD_DIR/$ASSET_NAME" -C "$INVITILO_BIN_DIR"
-if [ $? -ne 0 ]; then
-    printf "Failed\n"
-    exit 1
-fi
-printf "Done\n"
-
-# Create invitilo command.
-printf "Creating invitilo command... "
-cat <<EOF > "$USER_BIN_DIR/invitilo"
-#!/usr/bin/env bash
-
-# Invitilo: A command prompt
-# Launcher script for Invitilo
-
-# This script is automatically generated and should not be modified.
-
-# For use via the command-line.
-invitilo() {
-    source $INVITILO_BIN_DIR/invitilo-${LATEST_RELEASE#v}/invitilo "\$@"
 }
 
-# For startup via .bashrc.
-invitilo "\$@"
-EOF
-chmod u+x "$USER_BIN_DIR/invitilo"
-printf "Done\n"
-
-
-
-# Copy .bashrc to bashrc backup directory.
-printf "Backing up .bashrc... "
-if [ -f "$HOME/.bashrc" ]; then
-    # Find the highest numbered backup file. There is a more elegant way to do
-    # this using external commands, but this way sticks with bash builtins.
-    BACKUP_INDEX=0
-    for file in "$INVITILO_BIN_BASHRC_DIR"/bashrc.*; do
-        # Extract the numeric part after 'bashrc.' using parameter expansion
-        if [[ $file =~ bashrc\.([0-9]+)$ ]]; then
-            num=${BASH_REMATCH[1]}
-            # Update BACKUP_INDEX to the highest number found
-            (( num > BACKUP_INDEX )) && BACKUP_INDEX=$num
+remove_old_files() {
+    # Remove old files with hex suffixes; safer than rm -f "$XXXX_FILE"*
+    for file in "$HEADER_FILE"*; do
+        if [ -f "$file" ]; then
+            rm "$file"
         fi
     done
-    # Test if .bashrc is the same as the last backup file.
-    LAST_BACKUP_FILE="$INVITILO_BIN_BASHRC_DIR/bashrc.$BACKUP_INDEX"
-    if [ ! -f "$LAST_BACKUP_FILE" ] || ! cmp -s "$HOME/.bashrc" "$LAST_BACKUP_FILE"; then
-        BACKUP_INDEX=$((BACKUP_INDEX + 1))
-        cp "$HOME/.bashrc" "$INVITILO_BIN_BASHRC_DIR/bashrc.$BACKUP_INDEX"
-        if [ $? -ne 0 ]; then
-            printf "Failed\n"
-            exit 1
+    for file in "$DATA_FILE"*; do
+        if [ -f "$file" ]; then
+            rm "$file"
         fi
-        printf "Done\n"
+    done
+}
+
+# Check if the release file already exists locally.
+# Returns 0 if the file exists, 1 if it doesn't.
+is_release_file_exists() {
+    local RELEASE="$1"
+    local ASSET_NAME="$RELEASE.tar.gz"
+    if [ -f "$INVITILO_BIN_DOWNLOAD_DIR/$ASSET_NAME" ]; then
+        return 0
     else
-        printf "Skipped (no changes)\n"
+        return 1
     fi
-fi
+}
 
-# Append the invitilo source line to .bashrc if it doesn't already exist
-if ! grep -qE "^\s*source\s+$USER_BIN_DIR/invitilo(\s+.*)?$" "$HOME/.bashrc"; then
-    printf "Adding invitilo to .bashrc... "
-    cat <<EOF >> "$HOME/.bashrc"
+# Fetch the latest release version.
+# GitHub's API returns the latest non-pre-release version.
+do_get_latest_release() {
+    remove_old_files
+    local HEADER_FILE_PAGE="${HEADER_FILE}00"
+    local DATA_FILE_PAGE="${DATA_FILE}00"
+    local RELEASE
+    curl -s \
+        -H "Accept: application/vnd.github.v3+json" \
+        -H "User-Agent: leebehrens" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
+        -D "$HEADER_FILE_PAGE" \
+        -o "$DATA_FILE_PAGE" \
+        "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
+    RELEASE=$(jq -r '.tag_name' "$DATA_FILE_PAGE")
+    if [ -z "$RELEASE" ]; then
+        printf "Failed to fetch the latest release.\n"
+        exit 1
+    fi
+    printf "%s" "$RELEASE"
+}
 
-# Invitilo: A command prompt
-source $USER_BIN_DIR/invitilo
-EOF
+# Fetch the latest release or pre-release version.
+# GitHub's API does not guarantee ordering of pre-releases, so we need to get
+# them all and find the newest one, retrieving by pages.
+# GitHub will only return up to 1000 releases over multiple pages. But it's
+# unlikely we'll have that many releases for Invitilo.
+do_get_latest_prerelease() {
+    remove_old_files
+    local RELEASE=""
+    local RELEASE_DATE="0001-01-01T00:00:00Z"
+    local PAGE_NUM=0
+    local NEXT_URL="https://api.github.com/repos/$GITHUB_REPO/releases?per_page=3"  # TODO: remove per_page or make max of 100
+    while true; do
+        local HEADER_FILE_PAGE
+        HEADER_FILE_PAGE="$HEADER_FILE$(printf '%02x' "$PAGE_NUM")"
+        local DATA_FILE_PAGE
+        DATA_FILE_PAGE="$DATA_FILE$(printf '%02x' "$PAGE_NUM")"
+        curl -s \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "User-Agent: leebehrens" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -D "$HEADER_FILE_PAGE" \
+            -o "$DATA_FILE_PAGE" \
+            "$NEXT_URL"
+        IFS=" " read -r tag_name created_at < <(jq -r '.[] | "\(.tag_name) \(.created_at)"' "$DATA_FILE_PAGE" | sort -k2 -r | head -n 1)
+        if [[ "$created_at" > "$RELEASE_DATE" ]]; then
+            RELEASE="$tag_name"
+            RELEASE_DATE="$created_at"
+        fi
+        ((PAGE_NUM++))
+        if (( PAGE_NUM > 5 )); then  # TODO: remove
+            break
+        fi
+        NEXT_URL=$(grep -i '^link:' "$HEADER_FILE_PAGE" | sed -n 's/.*<\([^>]*\)>; rel="next".*/\1/p')
+        if [ -z "$NEXT_URL" ]; then
+            break
+        fi
+    done
+    if [ -z "$RELEASE" ]; then
+        printf "Failed to fetch the latest pre-release.\n"
+        exit 1
+    fi
+    printf "%s" "$RELEASE"
+}
+
+# Fetch a specific release version.
+# Technically, this isn't really required
+do_get_specific_release() {
+    local RELEASE_TAG="$1"
+    remove_old_files
+    local HEADER_FILE_PAGE="${HEADER_FILE}00"
+    local DATA_FILE_PAGE="${DATA_FILE}00"
+    local RELEASE
+    curl -s \
+        -H "Accept: application/vnd.github.v3+json" \
+        -H "User-Agent: leebehrens" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
+        -D "$HEADER_FILE_PAGE" \
+        -o "$DATA_FILE_PAGE" \
+        "https://api.github.com/repos/$GITHUB_REPO/releases/tags/$RELEASE_TAG"
+    RELEASE=$(jq -r '.tag_name' "$DATA_FILE_PAGE")
+    if [ -z "$RELEASE" ]; then
+        printf "Failed to fetch the latest release.\n"
+        exit 1
+    fi
+    printf "%s" "$RELEASE"
+}
+
+do_download_release_file() {
+    local RELEASE="$1"
+    printf "Downloading release file %s..." "$RELEASE"
+    local ASSET_NAME="$RELEASE.tar.gz"
+    curl -sL \
+        -H "Accept: application/octet-stream" \
+        -H "User-Agent: leebehrens" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
+        -o "$INVITILO_BIN_DOWNLOAD_DIR/$ASSET_NAME" \
+        "https://github.com/$GITHUB_REPO/releases/assets/$ASSET_NAME"
     if [ $? -ne 0 ]; then
         printf "Failed\n"
         exit 1
     fi
     printf "Done\n"
-else
-    printf "Skipped (already exists)\n"
+}
+
+do_unpack_release_file() {
+    local RELEASE="$1"
+    local ASSET_NAME="$RELEASE.tar.gz"
+    printf "Extracting release... "
+    mkdir -p "$INVITILO_BIN_DIR/$RELEASE"
+    tar -xzf "$INVITILO_BIN_DOWNLOAD_DIR/$ASSET_NAME" --strip-components=1 -C "$INVITILO_BIN_DIR/$RELEASE"
+    if [ $? -ne 0 ]; then
+        printf "Failed\n"
+        exit 1
+    fi
+    printf "Done\n"
+}
+
+do_make_symlink() {
+    local RELEASE="$1"
+    printf "Creating symlink to Invitilo... "
+    if [ -f "$USER_BIN_DIR/invitilo" ]; then
+        rm "$USER_BIN_DIR/invitilo"
+    fi
+    # ln -s "$INVITILO_BIN_DIR/invitilo-${RELEASE#v}/invitilo" "$USER_BIN_DIR/invitilo"
+    ln -s "$INVITILO_BIN_DIR/${RELEASE}/invitilo" "$USER_BIN_DIR/invitilo"
+    printf "Done\n"
+}
+
+do_process_release() {
+    local RELEASE="$1"
+    local FORCE_DOWNLOAD="$2"
+    # local ASSET_NAME="$RELEASE.tar.gz"
+    if $FORCE_DOWNLOAD || (is_release_file_exists "$RELEASE"); then
+        do_download_release_file "$RELEASE"
+        if [ $? -ne 0 ]; then
+            printf "Error: Failed to download the release file.\n"
+            exit 1
+        fi
+    fi
+    do_unpack_release_file "$RELEASE"
+    do_make_symlink "$RELEASE"
+}
+
+do_help() {
+    cat <<EOF
+Invitilo installer
+
+Usage: $0 [option] [release_tag]
+
+option:
+    --force      Force download
+    -h, --help   Show this help message
+
+release_tag:
+    latest       Download, install the latest release (default)
+    prerelease   Download, install the latest release or pre-release
+    v1.0.0       Download, install a specific release
+
+EOF
+}
+
+do_version() {
+    printf "Invitilo installer %s\n" "$INSTALLER_VERSION"
+    if [ -L "$USER_BIN_DIR/invitilo" ]; then
+        TARGET_DIR=$(dirname "$(readlink -f "$USER_BIN_DIR/invitilo")")
+        if [ -f "$TARGET_DIR/VERSION" ]; then
+            cat < "$TARGET_DIR/VERSION" | head -n 1
+        else
+            echo "VERSION file not found in $TARGET_DIR"
+            exit 1
+        fi
+    else
+        echo "Symlink to invitilo not found"
+        exit 1
+    fi
+}
+
+
+# Handle options.
+FORCE_DOWNLOAD=false
+OPTION="${1:-}"
+if [[ "$OPTION" =~ ^- ]]; then
+    case "$1" in
+        --force)
+            FORCE_DOWNLOAD=true
+            shift
+            ;;
+        -h|--help)
+            do_help
+            exit 0
+            ;;
+        --version)
+            do_version
+            exit 0
+            ;;
+        *)
+            echo "Error: invalid option '$1'. Use $0 -h for help."
+            exit 1
+            ;;
+    esac
 fi
+
+# Handle release tag (use "latest" if none specified)
+if [ "$#" -gt 1 ]; then
+    printf "Error: too many arguments. Use %s -h for help.\n" "$0"
+    exit 1
+fi
+RELEASE_TAG="${1:-latest}"
+case "$RELEASE_TAG" in
+    latest)
+        echo "Installing the latest release..."
+        RELEASE=$(do_get_latest_release)
+        if [ $? -ne 0 ]; then
+            printf "Error: Failed to fetch the latest release.\n"
+            exit 1
+        fi
+        do_process_release "$RELEASE" "$FORCE_DOWNLOAD"
+        echo "Release: $RELEASE"
+        # Logic for installing the latest release is already handled above
+        ;;
+    prerelease)
+        echo "Installing the latest pre-release..."
+        RELEASE=$(do_get_latest_prerelease)
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to fetch the latest release."
+            exit 1
+        fi
+        do_process_release "$RELEASE" "$FORCE_DOWNLOAD"
+        echo "Release: $RELEASE"
+        # Logic for installing the latest pre-release is already handled above
+        ;;
+    v*)
+        echo "Installing release version $RELEASE_TAG..."
+        RELEASE=$(do_get_specific_release "$RELEASE_TAG")
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to fetch the release."
+            exit 1
+        fi
+        do_process_release "$RELEASE" "$FORCE_DOWNLOAD"
+        echo "Release: $RELEASE"
+        # Logic for installing a specific release is already handled above
+        ;;
+    *)
+        echo "Error: invalid release tag '$RELEASE_TAG'. Use $0 -h for help."
+        exit 1
+        ;;
+esac
