@@ -26,15 +26,15 @@ for cmd in "${EXTERNAL_CMDS[@]}"; do
         MISSING_CMDS+=("$cmd")
     fi
 done
-# echo "Missing commands: ${MISSING_CMDS[*]}"
+# printf "Missing commands: ${MISSING_CMDS[*]}"
 if [ ${#MISSING_CMDS[@]} -gt 0 ]; then
     S=""
     if [ ${#MISSING_CMDS[@]} -gt 1 ]; then
         S="s"
     fi
-    echo "Please install the following command${S} on your system:"
+    printf "Please install the following command%s on your system:\n" "$S"
     for cmd in "${MISSING_CMDS[@]}"; do
-        echo "  - $cmd"
+        printf "  - %s\n" "$cmd"
     done
     exit 1
 fi
@@ -50,9 +50,9 @@ if [ -n "${XDG_CONFIG_HOME:-}" ] && [ -d "$XDG_CONFIG_HOME" ]; then
     INVITILO_CONFIG_DIR="$XDG_CONFIG_HOME/invitilo"
 fi
 mkdir -p "$INVITILO_CONFIG_DIR"
-# echo "$INVITILO_CONFIG_DIR"
+# Check that the directory was created successfully.
 if [ ! -d "$INVITILO_CONFIG_DIR" ]; then
-    echo "Failed to create directory: $INVITILO_CONFIG_DIR"
+    printf "Error: Failed to create directory: %s\n" "$INVITILO_CONFIG_DIR"
     exit 1
 fi
 
@@ -63,10 +63,10 @@ if [ -n "${XDG_BIN_HOME:-}" ] && [ -d "$XDG_BIN_HOME" ]; then
 fi
 INVITILO_BIN_DIR="$USER_BIN_DIR/invitilo.d"
 INVITILO_BIN_DOWNLOAD_DIR="$INVITILO_BIN_DIR/download"
-
 mkdir -p "$INVITILO_BIN_DOWNLOAD_DIR"
+# Check that the Invitilo bin/download directory chain was created successfully.
 if [ ! -d "$INVITILO_BIN_DOWNLOAD_DIR" ]; then
-    echo "Failed to create directory: $INVITILO_BIN_DOWNLOAD_DIR"
+    printf "Error: Failed to create directory: %s\n" "$INVITILO_BIN_DOWNLOAD_DIR"
     exit 1
 fi
 
@@ -74,17 +74,19 @@ fi
 HEADER_FILE="$INVITILO_BIN_DOWNLOAD_DIR/.header-"
 DATA_FILE="$INVITILO_BIN_DOWNLOAD_DIR/.data-"
 
+# Get the timestamp of the file, in seconds since epoch.
 get_file_timestamp() {
     local file="$1"
     if [ -f "$file" ]; then
-        local timestamp
+        local timestamp # seconds since epoch
         timestamp=$(stat -c %Y "$file")
-        echo "$timestamp"
+        printf "%s" "$timestamp"
     else
-        echo 0
+        printf "0"
     fi
 }
 
+# Remove old files with hex suffixes; safer than rm -f "$XXXX_FILE"*
 remove_old_files() {
     # Remove old files with hex suffixes; safer than rm -f "$XXXX_FILE"*
     for file in "$HEADER_FILE"*; do
@@ -161,6 +163,7 @@ do_get_latest_prerelease() {
             RELEASE="$tag_name"
             RELEASE_DATE="$created_at"
         fi
+        # printf "."  # Cannot print anything for progress, because ends up as part of the returned RELEASE
         ((PAGE_NUM++))
         if (( PAGE_NUM > 5 )); then  # TODO: remove
             break
@@ -200,16 +203,30 @@ do_get_specific_release() {
     printf "%s" "$RELEASE"
 }
 
+# Download the asset file (tarball) for the specified release.
+# Note: From the header, it appears assets are available for only a year.
 do_download_release_file() {
     local RELEASE="$1"
-    printf "Downloading release file %s..." "$RELEASE"
+    printf "Downloading release file %s... " "$RELEASE"
     local ASSET_NAME="$RELEASE.tar.gz"
+    local ASSET_HEADER_FILE="${HEADER_FILE}$RELEASE"
+    local ASSET_FILE="$INVITILO_BIN_DOWNLOAD_DIR/$ASSET_NAME"
+
+    # printf "ASSET_NAME:        %s\n" "$ASSET_NAME"
+    # printf "ASSET_FILE:        %s\n" "$ASSET_FILE"
+    # printf "ASSET_HEADER_FILE: %s\n" "$ASSET_HEADER_FILE"
+    # printf "ASSET_URL:         %s\n" "https://github.com/$GITHUB_REPO/archive/refs/tags/$ASSET_NAME"
+
     curl -sL \
         -H "Accept: application/octet-stream" \
         -H "User-Agent: leebehrens" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
-        -o "$INVITILO_BIN_DOWNLOAD_DIR/$ASSET_NAME" \
-        "https://github.com/$GITHUB_REPO/releases/assets/$ASSET_NAME"
+        -D "$ASSET_HEADER_FILE" \
+        -o "$ASSET_FILE" \
+        "https://github.com/$GITHUB_REPO/archive/refs/tags/$ASSET_NAME"
+        # This URL needs an ID number that is N/A, because only the installer is listed in the
+        # list of assets for the release.
+        # "https://github.com/$GITHUB_REPO/releases/assets/$ASSET_NAME"
     if [ $? -ne 0 ]; then
         printf "Failed\n"
         exit 1
@@ -217,6 +234,7 @@ do_download_release_file() {
     printf "Done\n"
 }
 
+# Unpack the release file
 do_unpack_release_file() {
     local RELEASE="$1"
     local ASSET_NAME="$RELEASE.tar.gz"
@@ -230,22 +248,32 @@ do_unpack_release_file() {
     printf "Done\n"
 }
 
+# Create a symlink to the specified release.
 do_make_symlink() {
     local RELEASE="$1"
     printf "Creating symlink to Invitilo... "
-    if [ -f "$USER_BIN_DIR/invitilo" ]; then
-        rm "$USER_BIN_DIR/invitilo"
+    local SYMLINK_TARGET="$INVITILO_BIN_DIR/$RELEASE/invitilo"
+    local SYMLINK="$USER_BIN_DIR/invitilo"
+    # Ensure the target file exists before creating the symlink.
+    if [ ! -f "$SYMLINK_TARGET" ]; then
+        printf "Error: inivitilo %s not found.\n" "$RELEASE"
+        exit 1
     fi
-    # ln -s "$INVITILO_BIN_DIR/invitilo-${RELEASE#v}/invitilo" "$USER_BIN_DIR/invitilo"
-    ln -s "$INVITILO_BIN_DIR/${RELEASE}/invitilo" "$USER_BIN_DIR/invitilo"
+    # Remove the old symlink if it exists.
+    if [ -f "$SYMLINK" ]; then
+        rm "$SYMLINK"
+    fi
+    # Create the new symlink.
+    ln -s "$SYMLINK_TARGET" "$SYMLINK"
     printf "Done\n"
 }
 
+# Download the release if necessary and install it.
 do_process_release() {
     local RELEASE="$1"
     local FORCE_DOWNLOAD="$2"
     # local ASSET_NAME="$RELEASE.tar.gz"
-    if $FORCE_DOWNLOAD || (is_release_file_exists "$RELEASE"); then
+    if $FORCE_DOWNLOAD || (! is_release_file_exists "$RELEASE"); then
         do_download_release_file "$RELEASE"
         if [ $? -ne 0 ]; then
             printf "Error: Failed to download the release file.\n"
@@ -256,6 +284,7 @@ do_process_release() {
     do_make_symlink "$RELEASE"
 }
 
+# Show help.
 do_help() {
     cat <<EOF
 Invitilo installer
@@ -265,29 +294,31 @@ Usage: $0 [option] [release_tag]
 option:
     --force      Force download
     -h, --help   Show this help message
+    --version    Show version info of this installer and Invitilo
 
 release_tag:
     latest       Download, install the latest release (default)
     prerelease   Download, install the latest release or pre-release
     v1.0.0       Download, install a specific release
-
 EOF
 }
 
+# Show the version number of the installer and invitilo.
 do_version() {
     printf "Invitilo installer %s\n" "$INSTALLER_VERSION"
-    if [ -L "$USER_BIN_DIR/invitilo" ]; then
-        TARGET_DIR=$(dirname "$(readlink -f "$USER_BIN_DIR/invitilo")")
-        if [ -f "$TARGET_DIR/VERSION" ]; then
-            cat < "$TARGET_DIR/VERSION" | head -n 1
-        else
-            echo "VERSION file not found in $TARGET_DIR"
-            exit 1
-        fi
-    else
-        echo "Symlink to invitilo not found"
+    # Check for the symlink.
+    if [ ! -L "$USER_BIN_DIR/invitilo" ]; then
+        printf "Error: Symlink to invitilo not found"
         exit 1
     fi
+    # Check for the VERSION file in the symlink target's directory.
+    TARGET_DIR=$(dirname "$(readlink -f "$USER_BIN_DIR/invitilo")")
+    if [ ! -f "$TARGET_DIR/VERSION" ]; then
+        printf "Error: VERSION file not found in %s\n" "$TARGET_DIR"
+        exit 1
+    fi
+    # Output the first line of the VERSION file.
+    cat < "$TARGET_DIR/VERSION" | head -n 1
 }
 
 
@@ -309,7 +340,7 @@ if [[ "$OPTION" =~ ^- ]]; then
             exit 0
             ;;
         *)
-            echo "Error: invalid option '$1'. Use $0 -h for help."
+            printf "Error: invalid option '%s'. Use %s -h for help.\n" "$1" "$0"
             exit 1
             ;;
     esac
@@ -323,40 +354,40 @@ fi
 RELEASE_TAG="${1:-latest}"
 case "$RELEASE_TAG" in
     latest)
-        echo "Installing the latest release..."
+        printf "Installing the latest release..."
         RELEASE=$(do_get_latest_release)
         if [ $? -ne 0 ]; then
             printf "Error: Failed to fetch the latest release.\n"
             exit 1
         fi
         do_process_release "$RELEASE" "$FORCE_DOWNLOAD"
-        echo "Release: $RELEASE"
+        printf "Release: %s\n" "$RELEASE"
         # Logic for installing the latest release is already handled above
         ;;
     prerelease)
-        echo "Installing the latest pre-release..."
+        printf "Installing the latest pre-release..."
         RELEASE=$(do_get_latest_prerelease)
         if [ $? -ne 0 ]; then
-            echo "Error: Failed to fetch the latest release."
+            printf "Error: Failed to fetch the latest release.\n"
             exit 1
         fi
         do_process_release "$RELEASE" "$FORCE_DOWNLOAD"
-        echo "Release: $RELEASE"
+        printf "Release: %s\n" "$RELEASE"
         # Logic for installing the latest pre-release is already handled above
         ;;
     v*)
-        echo "Installing release version $RELEASE_TAG..."
+        printf "Installing release version %s..." "$RELEASE_TAG"
         RELEASE=$(do_get_specific_release "$RELEASE_TAG")
         if [ $? -ne 0 ]; then
-            echo "Error: Failed to fetch the release."
+            printf "Error: Failed to fetch the release.\n"
             exit 1
         fi
         do_process_release "$RELEASE" "$FORCE_DOWNLOAD"
-        echo "Release: $RELEASE"
+        printf "Release: %s\n" "$RELEASE"
         # Logic for installing a specific release is already handled above
         ;;
     *)
-        echo "Error: invalid release tag '$RELEASE_TAG'. Use $0 -h for help."
+        printf "Error: invalid release tag '%s'. Use %s -h for help." "$RELEASE_TAG" "$0"
         exit 1
         ;;
 esac
