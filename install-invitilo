@@ -9,15 +9,19 @@ set -euo pipefail
 
 INSTALLER_VERSION="0.1.0"
 
+# TODO: remaove user-agent headers?
+# TODO: copy installer to the base invitilo bin if newer
+# TODO: check last time latest/prerelease was used, if older than 1 day or --force then proceed
+
 # Check that the required external commands are available.
 EXTERNAL_CMDS=(
-    curl
-    grep
-    jq
-    realpath
-    sed
-    sort
-    tar
+    "curl"
+    "grep"
+    "jq"
+    "realpath"
+    "sed"
+    "sort"
+    "tar"
 )
 
 MISSING_CMDS=()
@@ -39,10 +43,16 @@ if [ ${#MISSING_CMDS[@]} -gt 0 ]; then
     exit 1
 fi
 
-GITHUB_REPO="leebehrens/invitilo"
+# Where this script is running from.
+INSTALLER_REALPATH="$(realpath "${BASH_SOURCE[0]}")"
+INSTALLER_DIRNAME="$(dirname "$INSTALLER_REALPATH")"
+INSTALLER_BASENAME="$(basename "$INSTALLER_REALPATH")"
 
-INVITILO_INSTALL_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-INVITILO_INSTALL_FILE="$(basename "$(realpath "${BASH_SOURCE[0]}")")"
+# For GitHub API calls.
+API_HEADER_ACCEPT="Accept: application/vnd.github.v3+json"
+API_HEADER_USER_AGENT="User-Agent: install-invitilo/$INSTALLER_VERSION"
+API_HEADER_VERSION="X-GitHub-Api-Version: 2022-11-28"
+GITHUB_REPO="leebehrens/invitilo"
 
 # Determine the user's config dir for Invitilo. Create it if it doesn't exist.
 INVITILO_CONFIG_DIR="$HOME/.config/invitilo"
@@ -72,7 +82,7 @@ fi
 
 # Filenames for the get_xxxx_release functions.
 HEADER_FILE="$INVITILO_BIN_DOWNLOAD_DIR/.header-"
-DATA_FILE="$INVITILO_BIN_DOWNLOAD_DIR/.data-"
+BODY_FILE="$INVITILO_BIN_DOWNLOAD_DIR/.body-"
 
 # Get the timestamp of the file, in seconds since epoch.
 get_file_timestamp() {
@@ -86,19 +96,10 @@ get_file_timestamp() {
     fi
 }
 
-# Remove old files with hex suffixes; safer than rm -f "$XXXX_FILE"*
+# Remove old files with hex suffixes.
 remove_old_files() {
-    # Remove old files with hex suffixes; safer than rm -f "$XXXX_FILE"*
-    for file in "$HEADER_FILE"*; do
-        if [ -f "$file" ]; then
-            rm "$file"
-        fi
-    done
-    for file in "$DATA_FILE"*; do
-        if [ -f "$file" ]; then
-            rm "$file"
-        fi
-    done
+    rm -f "$HEADER_FILE"*
+    rm -f "$BODY_FILE"*
 }
 
 # Check if the release file already exists locally.
@@ -118,16 +119,16 @@ is_release_file_exists() {
 do_get_latest_release() {
     remove_old_files
     local HEADER_FILE_PAGE="${HEADER_FILE}00"
-    local DATA_FILE_PAGE="${DATA_FILE}00"
+    local BODY_FILE_PAGE="${BODY_FILE}00"
     local RELEASE
     curl -s \
-        -H "Accept: application/vnd.github.v3+json" \
-        -H "User-Agent: leebehrens" \
-        -H "X-GitHub-Api-Version: 2022-11-28" \
+        -H "$API_HEADER_ACCEPT" \
+        -H "$API_HEADER_USER_AGENT" \
+        -H "$API_HEADER_VERSION" \
         -D "$HEADER_FILE_PAGE" \
-        -o "$DATA_FILE_PAGE" \
+        -o "$BODY_FILE_PAGE" \
         "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
-    RELEASE=$(jq -r '.tag_name' "$DATA_FILE_PAGE")
+    RELEASE=$(jq -r '.tag_name' "$BODY_FILE_PAGE")
     if [ -z "$RELEASE" ]; then
         printf "Failed to fetch the latest release.\n"
         exit 1
@@ -149,16 +150,16 @@ do_get_latest_prerelease() {
     while true; do
         local HEADER_FILE_PAGE
         HEADER_FILE_PAGE="$HEADER_FILE$(printf '%02x' "$PAGE_NUM")"
-        local DATA_FILE_PAGE
-        DATA_FILE_PAGE="$DATA_FILE$(printf '%02x' "$PAGE_NUM")"
+        local BODY_FILE_PAGE
+        BODY_FILE_PAGE="$BODY_FILE$(printf '%02x' "$PAGE_NUM")"
         curl -s \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "User-Agent: leebehrens" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "$API_HEADER_ACCEPT" \
+            -H "$API_HEADER_USER_AGENT" \
+            -H "$API_HEADER_VERSION" \
             -D "$HEADER_FILE_PAGE" \
-            -o "$DATA_FILE_PAGE" \
+            -o "$BODY_FILE_PAGE" \
             "$NEXT_URL"
-        IFS=" " read -r tag_name created_at < <(jq -r '.[] | "\(.tag_name) \(.created_at)"' "$DATA_FILE_PAGE" | sort -k2 -r | head -n 1)
+        IFS=" " read -r tag_name created_at < <(jq -r '.[] | "\(.tag_name) \(.created_at)"' "$BODY_FILE_PAGE" | sort -k2 -r | head -n 1)
         if [[ "$created_at" > "$RELEASE_DATE" ]]; then
             RELEASE="$tag_name"
             RELEASE_DATE="$created_at"
@@ -186,41 +187,47 @@ do_get_specific_release() {
     local RELEASE_TAG="$1"
     remove_old_files
     local HEADER_FILE_PAGE="${HEADER_FILE}00"
-    local DATA_FILE_PAGE="${DATA_FILE}00"
+    local BODY_FILE_PAGE="${BODY_FILE}00"
     local RELEASE
+    set +e
     curl -s \
-        -H "Accept: application/vnd.github.v3+json" \
-        -H "User-Agent: leebehrens" \
-        -H "X-GitHub-Api-Version: 2022-11-28" \
+        --fail \
+        -H "$API_HEADER_ACCEPT" \
+        -H "$API_HEADER_USER_AGENT" \
+        -H "$API_HEADER_VERSION" \
         -D "$HEADER_FILE_PAGE" \
-        -o "$DATA_FILE_PAGE" \
+        -o "$BODY_FILE_PAGE" \
         "https://api.github.com/repos/$GITHUB_REPO/releases/tags/$RELEASE_TAG"
-    RELEASE=$(jq -r '.tag_name' "$DATA_FILE_PAGE")
-    if [ -z "$RELEASE" ]; then
-        printf "Failed to fetch the latest release.\n"
-        exit 1
+    RESULT=$?
+    set -e
+    if [ $RESULT -ne 0 ]; then
+        # Release not found.
+        return 1
+    fi
+    set +e
+    RELEASE=$(jq -r '.tag_name' "$BODY_FILE_PAGE")
+    RESULT=$?
+    set -e
+    if [ $RESULT -ne 0 ] || [ -z "$RELEASE" ]; then
+        # Failed to fetch the release.
+        return 1
     fi
     printf "%s" "$RELEASE"
+    return 0
 }
 
 # Download the asset file (tarball) for the specified release.
-# Note: From the header, it appears assets are available for only a year.
+# Note: From response headers, it appears assets are available for a year.
 do_download_release_file() {
     local RELEASE="$1"
     printf "Downloading release file %s... " "$RELEASE"
     local ASSET_NAME="$RELEASE.tar.gz"
     local ASSET_HEADER_FILE="${HEADER_FILE}$RELEASE"
     local ASSET_FILE="$INVITILO_BIN_DOWNLOAD_DIR/$ASSET_NAME"
-
-    # printf "ASSET_NAME:        %s\n" "$ASSET_NAME"
-    # printf "ASSET_FILE:        %s\n" "$ASSET_FILE"
-    # printf "ASSET_HEADER_FILE: %s\n" "$ASSET_HEADER_FILE"
-    # printf "ASSET_URL:         %s\n" "https://github.com/$GITHUB_REPO/archive/refs/tags/$ASSET_NAME"
-
     curl -sL \
-        -H "Accept: application/octet-stream" \
-        -H "User-Agent: leebehrens" \
-        -H "X-GitHub-Api-Version: 2022-11-28" \
+        -H "$API_HEADER_ACCEPT" \
+        -H "$API_HEADER_USER_AGENT" \
+        -H "$API_HEADER_VERSION" \
         -D "$ASSET_HEADER_FILE" \
         -o "$ASSET_FILE" \
         "https://github.com/$GITHUB_REPO/archive/refs/tags/$ASSET_NAME"
@@ -272,7 +279,6 @@ do_make_symlink() {
 do_process_release() {
     local RELEASE="$1"
     local FORCE_DOWNLOAD="$2"
-    # local ASSET_NAME="$RELEASE.tar.gz"
     if $FORCE_DOWNLOAD || (! is_release_file_exists "$RELEASE"); then
         do_download_release_file "$RELEASE"
         if [ $? -ne 0 ]; then
@@ -299,7 +305,9 @@ option:
 release_tag:
     latest       Download, install the latest release (default)
     prerelease   Download, install the latest release or pre-release
-    v1.0.0       Download, install a specific release
+    v0.0.0       Download, install a specific release (e.g., v1.2.3)
+
+Downloads are performed only if needed, unless --force is specified.
 EOF
 }
 
@@ -366,8 +374,7 @@ case "$RELEASE_TAG" in
         ;;
     prerelease)
         printf "Installing the latest pre-release..."
-        RELEASE=$(do_get_latest_prerelease)
-        if [ $? -ne 0 ]; then
+        if ! RELEASE=$(do_get_latest_prerelease); then
             printf "Error: Failed to fetch the latest release.\n"
             exit 1
         fi
@@ -377,11 +384,16 @@ case "$RELEASE_TAG" in
         ;;
     v*)
         printf "Installing release version %s..." "$RELEASE_TAG"
+        set +e
         RELEASE=$(do_get_specific_release "$RELEASE_TAG")
-        if [ $? -ne 0 ]; then
+        RESULT=$?
+        set -e
+        if [ $RESULT -ne 0 ]; then
             printf "Error: Failed to fetch the release.\n"
-            exit 1
+            exit 11
         fi
+
+        # printf "2\n"
         do_process_release "$RELEASE" "$FORCE_DOWNLOAD"
         printf "Release: %s\n" "$RELEASE"
         # Logic for installing a specific release is already handled above
